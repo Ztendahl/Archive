@@ -1,0 +1,12 @@
+node_modules
+.expo
+.expo-shared
+package-lock.json
+npm-debug.log
+yarn-error.log
+.DS_Store
+
+# Expo
+web-build
+android
+ios
