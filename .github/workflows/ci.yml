@@ -38,6 +38,10 @@ jobs:
       - name: Build web
         if: matrix.platform == 'web'
         run: npm run build:web
+        env:
+          CI: "true"
+          EXPO_OFFLINE: "1"
+          EXPO_NO_TELEMETRY: "1"
       - name: Upload web artifact
         if: matrix.platform == 'web'
         uses: actions/upload-artifact@v4
@@ -61,10 +65,12 @@ jobs:
           path: ./site
       - name: Configure Pages
         uses: actions/configure-pages@v4
+        with:
+          enablement: true
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./site/dist
+          path: ./site
       - name: Deploy to Pages
         id: deployment
         uses: actions/deploy-pages@v4
