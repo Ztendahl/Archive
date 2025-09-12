@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList } from 'react-native';
 import type { Person } from '../db/people.repository';
 
-export default function PersonList(): JSX.Element {
+export default function PersonList(): React.JSX.Element {
   const [people, setPeople] = useState<Person[]>([]);
 
   useEffect(() => {
