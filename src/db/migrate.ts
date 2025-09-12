@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { getDatabase } from './index.js';
-import { SQLiteAdapter } from './adapters/types.js';
+import { getDatabase } from './index';
+import type { SQLiteAdapter } from './adapters/types';
 
 export function migrate(db: SQLiteAdapter = getDatabase()): void {
   db.exec(`

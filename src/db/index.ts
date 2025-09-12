@@ -1,8 +1,10 @@
-import { createSQLiteNodeAdapter } from './adapters/sqlite-node.js';
-import { SQLiteAdapter } from './adapters/types.js';
+import type { SQLiteAdapter } from './adapters/types';
 
 export function getDatabase(): SQLiteAdapter {
   if (typeof process !== 'undefined' && process.versions?.node && !(process as any).browser) {
+    const { createSQLiteNodeAdapter } = (
+      eval('require')('./adapters/sqlite-node') as typeof import('./adapters/sqlite-node')
+    );
     return createSQLiteNodeAdapter();
   }
   if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {

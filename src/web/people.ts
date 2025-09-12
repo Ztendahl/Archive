@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { createPeopleRepository } from '../db/people.repository.js';
+import { createPeopleRepository } from '../db/people.repository';
 
 /**
  * Ensure window.api.people is available in non-Electron environments.
@@ -12,11 +12,11 @@ export async function ensurePeopleApi(): Promise<void> {
 
   let adapter;
   if (Platform.OS === 'web') {
-    const { initSQLiteWeb, createSQLiteWebAdapter } = await import('../db/adapters/sqlite-web.js');
+    const { initSQLiteWeb, createSQLiteWebAdapter } = await import('../db/adapters/sqlite-web');
     await initSQLiteWeb();
     adapter = createSQLiteWebAdapter();
   } else {
-    const { createSQLiteRNAdapter } = await import('../db/adapters/sqlite-rn.js');
+    const { createSQLiteRNAdapter } = await import('../db/adapters/sqlite-rn');
     adapter = createSQLiteRNAdapter();
   }
 
