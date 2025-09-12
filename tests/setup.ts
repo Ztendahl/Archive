@@ -1,16 +1,18 @@
-import Database from 'better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
+import type { Database as BetterDatabase } from 'better-sqlite3';
 import { beforeEach, afterEach } from 'vitest';
 import { migrate } from '../src/db/migrate';
 
 declare module 'vitest' {
+  // Expose the SQLite database on the test context
   export interface TestContext {
-    db: Database;
+    db: BetterDatabase;
   }
 }
 
 beforeEach((ctx) => {
-  const db = new Database(':memory:');
-  migrate(db as any);
+  const db = new BetterSqlite3(':memory:');
+  migrate(db);
   ctx.db = db;
 });
 

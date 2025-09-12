@@ -10,7 +10,7 @@ describe('migrate', () => {
     expect(first.length).toBe(1);
     expect(first[0].id).toBe(1);
     expect(first[0].schema_version).toBe(1);
-    migrate(db as any);
+    migrate(db);
     const second = db.prepare('SELECT * FROM meta').all() as {
       id: number;
       schema_version: number;
