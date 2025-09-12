@@ -11,7 +11,7 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["react/next", "react-dom/next", "vitest/globals"]
+    "types": ["react", "react-dom", "node", "vitest/globals"]
   },
   "include": ["src", "tests"]
 }
