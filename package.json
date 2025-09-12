@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "prebuild:web": "expo install @expo/metro-runtime react-dom react-native-web @expo/webpack-config",
-    "build:web": "expo export:web --output-dir dist",
+    "build:web": "expo export:web",
     "serve:web": "npx serve -s dist -l 4173"
   },
   "dependencies": {
