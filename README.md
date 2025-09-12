@@ -47,12 +47,12 @@ the repository.
 
 This app uses a thin DB adapter per platform, all behind `peopleRepository`:
 
-| Platform  | Adapter                   | Storage path                          |
-|-----------|---------------------------|---------------------------------------|
-| Desktop   | better-sqlite3 (Node)     | Electron `app.getPath('userData')`    |
-| iOS/Android | expo-sqlite | App document directory |
-| Web       | sql.js (WASM) or IndexedDB | Browser storage                       |
+| Platform    | Adapter                | Notes & Storage                                 |
+|-------------|------------------------|-----------------------------------------------|
 
+| Desktop     | better-sqlite3 (Node)  | Stores DB under Electron `app.getPath('userData')` |
+| iOS/Android | expo-sqlite            | Requires Expo SDK 50+, stores in app documents |
+| Web         | sql.js (WASM) + IndexedDB | Set `globalThis.initSqlJs` then call `initSQLiteWeb()`; data lives in IndexedDB |
 Migrations are applied via `src/db/migrate.ts` (Node/Web) or on app start (RN).
 Schema version is tracked in a single-row table `meta(id INTEGER PRIMARY KEY CHECK (id = 1), schema_version INT)`.
 
@@ -99,8 +99,9 @@ Adapter-specific tests can mock the underlying SQLite library (e.g., mock
 
 ### Development Notes
 
-- Adapters for React Native and Web are placeholders — only the Node adapter
-  (`sqlite-node.ts`) is functional right now.
+- Adapter modules are loaded conditionally so bundlers can tree-shake unused
+  platforms. Import `sqlite-rn.ts` only in React Native bundles and
+  `sqlite-web.ts` only for web builds.
 - Make sure to install missing dev dependencies (`typescript`, `ts-node`,
   `vitest`, `@eslint/js`, etc.) before running lint/typecheck/test/migrate scripts.
 - The CI pipeline runs linting, type checks, and unit tests; it will fail until
