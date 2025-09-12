@@ -1,14 +1,17 @@
-import js from '@eslint/js';
-import tsParser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tseslint from 'typescript-eslint';
+import eslint from '@eslint/js';
 import globals from 'globals';
 
-export default [
-  js.configs.recommended,
+export default tseslint.config(
   {
-    files: ['**/*.{ts,tsx,js,jsx}'],
+    ignores: ['dist', 'node_modules', 'babel.config.cjs', 'eslint.config.js'],
+  },
+  eslint.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
-      parser: tsParser,
+      parser: tseslint.parser,
       sourceType: 'module',
       ecmaVersion: 'latest',
       globals: {
@@ -16,12 +19,20 @@ export default [
         ...globals.node,
       },
     },
-    plugins: { '@typescript-eslint': tsPlugin },
     rules: {
-      ...tsPlugin.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'off',
       'no-undef': 'off',
     },
-    ignores: ['dist', 'node_modules'],
   },
-];
+  {
+    files: ['**/*.{js,jsx}'],
+    languageOptions: {
+      sourceType: 'module',
+      ecmaVersion: 'latest',
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+  }
+);
