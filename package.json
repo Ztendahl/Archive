@@ -13,6 +13,7 @@
     "seed": "node --loader ts-node/esm ./src/db/seed.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "prebuild:web": "expo install @expo/metro-runtime react-dom react-native-web @expo/webpack-config",
     "build:web": "expo export:web"
   },
   "dependencies": {
