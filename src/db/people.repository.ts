@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { SQLiteAdapter } from './adapters/types';
-import { getDatabase } from './index.js';
 
 export interface Person {
   id?: string;
@@ -39,21 +38,21 @@ function initialize(db: SQLiteAdapter): void {
   `);
 }
 
-export function createPeopleRepository(db: SQLiteAdapter = getDatabase()): PeopleRepository {
-  initialize(db);
+export function createPeopleRepository(adapter: SQLiteAdapter): PeopleRepository {
+  initialize(adapter);
 
   const listPeople = (): Person[] =>
-    db
+    adapter
       .prepare('SELECT * FROM people ORDER BY last_name, first_name')
       .all<Person>();
 
   const getPerson = (id: string): Person | undefined =>
-    db.prepare('SELECT * FROM people WHERE id = ?').get<Person>(id);
+    adapter.prepare('SELECT * FROM people WHERE id = ?').get<Person>(id);
 
   const savePerson = (person: Person): Person => {
     const record: Person = { ...person, id: person.id ?? uuidv4() };
 
-    const stmt = db.prepare(`
+    const stmt = adapter.prepare(`
       INSERT INTO people (
         id, first_name, last_name, birth_date, birth_place, death_date, death_place, notes, tags
       ) VALUES (
@@ -86,7 +85,7 @@ export function createPeopleRepository(db: SQLiteAdapter = getDatabase()): Peopl
   };
 
   const deletePerson = (id: string): void => {
-    db.prepare('DELETE FROM people WHERE id = ?').run(id);
+    adapter.prepare('DELETE FROM people WHERE id = ?').run(id);
   };
 
   return { listPeople, getPerson, savePerson, deletePerson };
