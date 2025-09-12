@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { SQLiteAdapter } from './adapters/types';
-import { getDatabase } from './index';
+import { SQLiteAdapter } from './adapters/types.js';
+import { getDatabase } from './index.js';
 
 export interface Person {
   id?: string;

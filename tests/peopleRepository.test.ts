@@ -6,7 +6,7 @@ let repo: PeopleRepository;
 
 beforeEach(() => {
   const db = new Database(':memory:');
-  repo = createPeopleRepository(db);
+  repo = createPeopleRepository(db as any);
 });
 
 describe('people repository', () => {
