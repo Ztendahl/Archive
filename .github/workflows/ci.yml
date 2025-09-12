@@ -1,21 +1,14 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches: [main]
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+    branches: [main, "**"]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-web:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        platform: [node, web]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,41 +29,36 @@ jobs:
       - name: Lint/Typecheck/Test
         run: npm run lint && npm run typecheck && npm test
       - name: Build web
-        if: matrix.platform == 'web'
         run: npm run build:web
         env:
           CI: "true"
           EXPO_OFFLINE: "1"
           EXPO_NO_TELEMETRY: "1"
       - name: Upload web artifact
-        if: matrix.platform == 'web'
         uses: actions/upload-artifact@v4
         with:
           name: web-build
-          path: |
-            dist/**
-            web-build/**
+          path: dist/**
 
   deploy:
-    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build-web
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: web-build
           path: ./site
-      - name: Configure Pages
-        uses: actions/configure-pages@v4
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
         with:
-          enablement: true
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./site
-      - name: Deploy to Pages
-        id: deployment
+          path: ./site/dist
+      - id: deployment
         uses: actions/deploy-pages@v4
