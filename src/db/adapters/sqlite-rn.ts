@@ -1,5 +1,5 @@
 import { openDatabaseSync } from 'expo-sqlite';
-import { SQLiteAdapter } from './types.js';
+import type { SQLiteAdapter } from './types';
 
 export function createSQLiteRNAdapter(): SQLiteAdapter {
   const db = openDatabaseSync('archive.db');

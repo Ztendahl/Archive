@@ -1,4 +1,4 @@
-import { SQLiteAdapter } from './types.js';
+import type { SQLiteAdapter } from './types';
 
 const DB_NAME = 'archive.db';
 const STORE_NAME = 'db';
@@ -7,11 +7,10 @@ let db: any = null;
 let initPromise: Promise<void> | null = null;
 
 async function initialize(): Promise<void> {
-  const initSqlJs = (globalThis as any).initSqlJs;
-  if (typeof initSqlJs !== 'function') {
-    throw new Error('initSqlJs not set on globalThis');
+  if (!(globalThis as any).initSqlJs) {
+    throw new Error('sql.js not loaded: ensure initSqlJs is available before initializing the web adapter');
   }
-  const SQL = await initSqlJs({
+  const SQL = await (globalThis as any).initSqlJs({
     locateFile: (file: string) => `node_modules/sql.js/dist/${file}`,
   });
   const data = await loadFromIndexedDB();

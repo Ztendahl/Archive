@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createPeopleRepository, PeopleRepository } from '../src/db/people.repository';
+import { createPeopleRepository, type PeopleRepository } from '../src/db/people.repository';
 
 let repo: PeopleRepository;
 
