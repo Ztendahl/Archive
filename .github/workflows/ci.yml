@@ -2,47 +2,53 @@ name: CI
 
 on:
   push:
-    branches: [main, "**"]
+    branches: ['**']     # build on any branch
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      - name: Install
-        run: npm install
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-      - name: Lint/Typecheck/Test
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Lint / Typecheck / Test
         run: npm run lint && npm run typecheck && npm test
+
       - name: Build web
-        run: npm run build:web
         env:
-          CI: "true"
-          EXPO_OFFLINE: "1"
-          EXPO_NO_TELEMETRY: "1"
+          CI: true
+          EXPO_OFFLINE: 1
+          EXPO_NO_TELEMETRY: 1
+        run: npm run build:web
+
+      - name: Verify dist exists (debug)
+        run: |
+          ls -la
+          test -d dist && ls -la dist
+
       - name: Upload web artifact
         uses: actions/upload-artifact@v4
         with:
           name: web-build
-          path: dist/**
+          path: dist/**           # Expo SDK 50 default output
+          if-no-files-found: error
+          retention-days: 7
 
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: build-web
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -52,13 +58,20 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
           name: web-build
           path: ./site
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./site/dist
-      - id: deployment
+
+      - name: Deploy to Pages
+        id: deployment
         uses: actions/deploy-pages@v4
