@@ -13,7 +13,7 @@
     "seed": "node --loader ts-node/esm ./src/db/seed.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "build:web": "expo build:web"
+    "build:web": "expo export:web"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.1",
