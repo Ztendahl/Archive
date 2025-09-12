@@ -21,8 +21,23 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      - name: Cache prebuilds
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm/_prebuilds
+          key: ${{ runner.os }}-prebuilds-${{ hashFiles('package-lock.json') }}
+
       - name: Install deps
         run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Verify dependency floors
+        run: npm run versions:check
+
+      - name: Audit production deps
+        run: npm run audit:ci
 
       - name: Lint / Typecheck / Test
         run: npm run lint && npm run typecheck && npm test
