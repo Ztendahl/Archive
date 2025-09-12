@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -34,16 +34,23 @@ jobs:
           EXPO_NO_TELEMETRY: 1
         run: npm run build:web
 
-      - name: Verify dist exists (debug)
+      - name: Detect export dir
+        id: detect
         run: |
-          ls -la
-          test -d dist && ls -la dist
+          if [ -d dist ]; then
+            echo "WEB_DIR=dist" >> $GITHUB_ENV
+          elif [ -d web-build ]; then
+            echo "WEB_DIR=web-build" >> $GITHUB_ENV
+          else
+            echo "❌ No web export directory found"; ls -la; exit 1
+          fi
+          echo "Detected \$WEB_DIR=$WEB_DIR"
 
       - name: Upload web artifact
         uses: actions/upload-artifact@v4
         with:
           name: web-build
-          path: dist/**           # Expo SDK 50 default output
+          path: ${{ env.WEB_DIR }}/**
           if-no-files-found: error
           retention-days: 7
 
@@ -59,20 +66,26 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: web-build
           path: ./site
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v4
+      - name: Detect export dir inside artifact
+        run: |
+          if [ -d ./site/dist ]; then
+            echo "WEB_DIR=dist" >> $GITHUB_ENV
+          elif [ -d ./site/web-build ]; then
+            echo "WEB_DIR=web-build" >> $GITHUB_ENV
+          else
+            echo "❌ No web export directory in artifact"; ls -la ./site; exit 1
+          fi
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./site/dist
+          path: ./site/${{ env.WEB_DIR }}
 
-      - name: Deploy to Pages
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4
