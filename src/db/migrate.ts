@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { getDatabase } from './index';
+import { createSQLiteNodeAdapter } from './adapters/sqlite-node.js';
 import type { SQLiteAdapter } from './adapters/types';
 
-export function migrate(db: SQLiteAdapter = getDatabase()): void {
+export function migrate(db: SQLiteAdapter = createSQLiteNodeAdapter()): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS meta (
       id INTEGER PRIMARY KEY CHECK (id = 1),
