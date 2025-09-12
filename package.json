@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "prebuild:web": "expo install @expo/metro-runtime react-dom react-native-web @expo/webpack-config",
-    "build:web": "expo export:web",
+    "build:web": "expo export:web --output-dir dist",
     "serve:web": "npx serve -s dist -l 4173"
   },
   "dependencies": {
@@ -37,8 +37,8 @@
     "@types/react": "^18.2.37",
     "@types/react-native": "^0.73.0",
     "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^8.7.0",
+    "@typescript-eslint/parser": "^8.7.0",
     "@vitest/coverage-c8": "^0.33.0",
     "@vitest/ui": "^0.34.6",
     "detox": "^20.10.0",
@@ -46,7 +46,8 @@
     "globals": "^16.4.0",
     "playwright": "^1.41.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.7.0",
     "vitest": "^0.34.6"
   }
 }
