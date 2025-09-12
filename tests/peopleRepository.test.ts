@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createPeopleRepository } from '../src/db/peopleRepository.js';
+import { createPeopleRepository, PeopleRepository } from '../src/db/people.repository';
 
-let repo;
+let repo: PeopleRepository;
 
 beforeEach(() => {
   const db = new Database(':memory:');
@@ -12,8 +12,8 @@ beforeEach(() => {
 describe('people repository', () => {
   it('saves and fetches a person', () => {
     const person = repo.savePerson({ first_name: 'Jane', last_name: 'Doe' });
-    const fetched = repo.getPerson(person.id);
-    expect(fetched.first_name).toBe('Jane');
+    const fetched = repo.getPerson(person.id!);
+    expect(fetched?.first_name).toBe('Jane');
   });
 
   it('lists people', () => {
@@ -24,7 +24,7 @@ describe('people repository', () => {
 
   it('deletes a person', () => {
     const person = repo.savePerson({ first_name: 'Delete', last_name: 'Me' });
-    repo.deletePerson(person.id);
+    repo.deletePerson(person.id!);
     const list = repo.listPeople();
     expect(list.length).toBe(0);
   });

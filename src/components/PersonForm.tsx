@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button } from 'react-native';
 
-export default function PersonForm({ onSaved }) {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+interface PersonFormProps {
+  onSaved?: (person: any) => void;
+}
+
+export default function PersonForm({ onSaved }: PersonFormProps): JSX.Element {
+  const [firstName, setFirstName] = useState<string>('');
+  const [lastName, setLastName] = useState<string>('');
 
   const onSubmit = async () => {
     if (window.api?.people?.save) {
