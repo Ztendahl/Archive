@@ -54,7 +54,7 @@ This app uses a thin DB adapter per platform, all behind `peopleRepository`:
 | Web       | sql.js (WASM) or IndexedDB | Browser storage                       |
 
 Migrations are applied via `src/db/migrate.ts` (Node/Web) or on app start (RN).
-Schema version is tracked in `meta(schema_version INT)`.
+Schema version is tracked in a single-row table `meta(id INTEGER PRIMARY KEY CHECK (id = 1), schema_version INT)`.
 
 State lives in platform-specific app storage and should be backed up or exported accordingly.
 
