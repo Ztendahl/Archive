@@ -80,7 +80,8 @@ Optional SQLite encryption (e.g., SQLCipher) may be enabled on mobile. Be mindfu
    ```bash
    npm run migrate
    ```
-   The React Native adapter runs migrations automatically on app launch.
+   For React Native, migrations run automatically on app launch. For desktop and web,
+   you must run `npm run migrate` manually before first launch.
 
 ## Testing
 
@@ -90,11 +91,20 @@ Unit tests are written with [Vitest](https://vitest.dev/). Run them with:
 npm test
 ```
 
-End-to-end tests use [Detox](https://wix.github.io/Detox/) for mobile and
-[Playwright](https://playwright.dev/) for web/desktop.
+End-to-end frameworks (Detox, Playwright) are not yet configured; see
+`tests/` for unit examples.
 
 Adapter-specific tests can mock the underlying SQLite library (e.g., mock
 `better-sqlite3` in React Native or web tests).
+
+### Development Notes
+
+- Adapters for React Native and Web are placeholders — only the Node adapter
+  (`sqlite-node.ts`) is functional right now.
+- Make sure to install missing dev dependencies (`typescript`, `ts-node`,
+  `vitest`, `@eslint/js`, etc.) before running lint/typecheck/test/migrate scripts.
+- The CI pipeline runs linting, type checks, and unit tests; it will fail until
+  all adapters and dependencies are in place.
 
 The application entry point is located at `src/App.tsx` and uses React Native
 components that work on both mobile and desktop via React Native Web.

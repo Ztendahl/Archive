@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { getDatabase } from './index';
-import { SQLiteAdapter } from './adapters/types';
+import { getDatabase } from './index.js';
+import { SQLiteAdapter } from './adapters/types.js';
 
 export function migrate(db: SQLiteAdapter = getDatabase()): void {
   db.exec('CREATE TABLE IF NOT EXISTS meta (schema_version INTEGER)');
