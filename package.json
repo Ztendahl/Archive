@@ -2,13 +2,18 @@
   "name": "archive-cross-platform-app",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/App.js",
+  "main": "src/App.tsx",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrate": "ts-node ./src/db/migrate.ts",
+    "seed": "ts-node ./src/db/seed.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "build:web": "expo build:web"
   },
   "dependencies": {
     "expo": "^50.0.0",
@@ -20,6 +25,17 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "vitest": "^1.0.4"
+    "vitest": "^1.0.4",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.37",
+    "@types/react-native": "^0.73.0",
+    "@types/better-sqlite3": "^7.6.7",
+    "detox": "^20.10.0",
+    "playwright": "^1.41.2"
   }
 }

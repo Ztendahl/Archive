@@ -1,8 +1,27 @@
-import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
+import { SQLiteAdapter } from './adapters/types';
+import { getDatabase } from './index';
 
-function initialize(db) {
+export interface Person {
+  id?: string;
+  first_name?: string;
+  last_name?: string;
+  birth_date?: string;
+  birth_place?: string;
+  death_date?: string;
+  death_place?: string;
+  notes?: string;
+  tags?: string;
+}
+
+export interface PeopleRepository {
+  listPeople(): Person[];
+  getPerson(id: string): Person | undefined;
+  savePerson(person: Person): Person;
+  deletePerson(id: string): void;
+}
+
+function initialize(db: SQLiteAdapter): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS people (
       id TEXT PRIMARY KEY,
@@ -20,16 +39,17 @@ function initialize(db) {
   `);
 }
 
-export function createPeopleRepository(databasePath = path.resolve('archive.db')) {
-  const db = typeof databasePath === 'string' ? new Database(databasePath) : databasePath;
+export function createPeopleRepository(db: SQLiteAdapter = getDatabase()): PeopleRepository {
   initialize(db);
 
-  const listPeople = () => db.prepare('SELECT * FROM people ORDER BY last_name, first_name').all();
+  const listPeople = () =>
+    db.prepare('SELECT * FROM people ORDER BY last_name, first_name').all<Person>();
 
-  const getPerson = (id) => db.prepare('SELECT * FROM people WHERE id = ?').get(id);
+  const getPerson = (id: string) =>
+    db.prepare('SELECT * FROM people WHERE id = ?').get<Person>(id);
 
-  const savePerson = (person) => {
-    const record = { ...person };
+  const savePerson = (person: Person) => {
+    const record: Person = { ...person };
     if (!record.id) {
       record.id = uuidv4();
     }
@@ -50,7 +70,7 @@ export function createPeopleRepository(databasePath = path.resolve('archive.db')
     return record;
   };
 
-  const deletePerson = (id) => {
+  const deletePerson = (id: string) => {
     db.prepare('DELETE FROM people WHERE id = ?').run(id);
   };
 

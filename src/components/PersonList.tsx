@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList } from 'react-native';
+import type { Person } from '../db/people.repository';
 
-export default function PersonList() {
-  const [people, setPeople] = useState([]);
+export default function PersonList(): JSX.Element {
+  const [people, setPeople] = useState<Person[]>([]);
 
   useEffect(() => {
     if (window.api?.people?.list) {
@@ -14,7 +15,7 @@ export default function PersonList() {
     <View>
       <FlatList
         data={people}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id!}
         renderItem={({ item }) => (
           <Text>{`${item.first_name || ''} ${item.last_name || ''}`}</Text>
         )}

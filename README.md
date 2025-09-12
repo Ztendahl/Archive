@@ -10,31 +10,55 @@ environments using React Native Web and Expo.
 .
 ├── migrations/                # SQL files that evolve the SQLite schema
 ├── src/
-│   ├── App.js                # Root component tying form and list together
+│   ├── App.tsx               # Root component tying form and list together
 │   ├── components/           # UI pieces used by the app
-│   │   ├── PersonForm.js     # Simple form that saves a person record
-│   │   └── PersonList.js     # Renders records from the database
+│   │   ├── PersonForm.tsx    # Simple form that saves a person record
+│   │   └── PersonList.tsx    # Renders records from the database
 │   ├── db/                   # Data access and migration helpers
-│   │   ├── migrate.js        # Applies files in migrations/ to the database
-│   │   └── peopleRepository.js # CRUD operations for people table
+│   │   ├── adapters/         # Platform-specific SQLite bindings
+│   │   │   ├── sqlite-node.ts
+│   │   │   ├── sqlite-rn.ts
+│   │   │   └── sqlite-web.ts
+│   │   ├── index.ts          # Selects adapter by platform
+│   │   ├── migrate.ts        # Applies files in migrations/ to the database
+│   │   └── people.repository.ts # CRUD operations for people table
 │   └── ipc/                  # IPC handlers for desktop hosts
-│       └── people.js         # Bridges UI calls to repository functions
+│       └── people.ts         # Bridges UI calls to repository functions
 ├── tests/                    # Vitest unit tests
-│   └── peopleRepository.test.js
-├── app.json                  # Expo configuration
+│   └── peopleRepository.test.ts
+├── app.config.ts             # Expo configuration
 ├── babel.config.js           # Babel setup for React Native
 └── package.json              # Dependencies and npm scripts
 ```
 
 ### Data Layer
 
+This repo uses a platform-specific SQLite adapter (Node, RN, Web) behind a common repository interface.
+
 The app stores people records in `archive.db` using the
-[`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) library. SQL
-migrations in `migrations/` and the helper in `src/db/migrate.js` ensure the
-database schema is kept up to date. `src/db/peopleRepository.js` exposes
+[`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) library on desktop.
+SQL migrations in `migrations/` and the helper in `src/db/migrate.ts` ensure the
+database schema is kept up to date. `src/db/people.repository.ts` exposes
 functions to list, create/update, fetch and delete people. For desktop targets
-an IPC layer (`src/ipc/people.js`) forwards calls from the renderer process to
+an IPC layer (`src/ipc/people.ts`) forwards calls from the renderer process to
 the repository.
+
+### Platforms & Storage
+
+This app uses a thin DB adapter per platform, all behind `peopleRepository`:
+
+| Platform  | Adapter                   | Storage path                          |
+|-----------|---------------------------|---------------------------------------|
+| Desktop   | better-sqlite3 (Node)     | Electron `app.getPath('userData')`    |
+| iOS/Android | react-native-quick-sqlite / expo-sqlite | App document directory |
+| Web       | sql.js (WASM) or IndexedDB | Browser storage                       |
+
+Migrations are applied via `src/db/migrate.ts` (Node/Web) or on app start (RN).
+Schema version is tracked in `meta(schema_version INT)`.
+
+State lives in platform-specific app storage and should be backed up or exported accordingly.
+
+Optional SQLite encryption (e.g., SQLCipher) may be enabled on mobile. Be mindful of data export and backup.
 
 ## Getting Started
 
@@ -52,6 +76,11 @@ the repository.
    npm run ios       # Run on iOS simulator
    npm run web       # Run in web browser
    ```
+4. For desktop and web, run migrations:
+   ```bash
+   npm run migrate
+   ```
+   The React Native adapter runs migrations automatically on app launch.
 
 ## Testing
 
@@ -61,6 +90,12 @@ Unit tests are written with [Vitest](https://vitest.dev/). Run them with:
 npm test
 ```
 
-The application entry point is located at `src/App.js` and uses React Native
+End-to-end tests use [Detox](https://wix.github.io/Detox/) for mobile and
+[Playwright](https://playwright.dev/) for web/desktop.
+
+Adapter-specific tests can mock the underlying SQLite library (e.g., mock
+`better-sqlite3` in React Native or web tests).
+
+The application entry point is located at `src/App.tsx` and uses React Native
 components that work on both mobile and desktop via React Native Web.
 
