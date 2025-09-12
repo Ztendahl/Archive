@@ -1,16 +1,14 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches: [main]
+    branches: [main, "**"]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-web:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        platform: [node, web]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,11 +26,39 @@ jobs:
         run: npm install
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-      - name: Prepare web deps
-        if: matrix.platform == 'web'
-        run: npm run prebuild:web
       - name: Lint/Typecheck/Test
         run: npm run lint && npm run typecheck && npm test
       - name: Build web
-        if: matrix.platform == 'web'
         run: npm run build:web
+        env:
+          CI: "true"
+          EXPO_OFFLINE: "1"
+          EXPO_NO_TELEMETRY: "1"
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: dist/**
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build-web
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: ./site
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

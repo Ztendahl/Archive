@@ -1,4 +1,4 @@
-// Placeholder adapter for React Native using react-native-quick-sqlite or expo-sqlite
+// Placeholder adapter for React Native using expo-sqlite
 // Implementations should provide an object compatible with SQLiteAdapter.
 import { SQLiteAdapter } from './types.js';
 
