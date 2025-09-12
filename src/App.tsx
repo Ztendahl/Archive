@@ -4,7 +4,7 @@ import PersonList from './components/PersonList';
 import PersonForm from './components/PersonForm';
 import { ensurePeopleApi } from './web/people';
 
-export default function App(): JSX.Element {
+export default function App(): React.JSX.Element {
   const [refreshKey, setRefreshKey] = useState(0);
   const [ready, setReady] = useState(false);
 

@@ -5,7 +5,7 @@ interface PersonFormProps {
   onSaved?: (person: any) => void;
 }
 
-export default function PersonForm({ onSaved }: PersonFormProps): JSX.Element {
+export default function PersonForm({ onSaved }: PersonFormProps): React.JSX.Element {
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
 
