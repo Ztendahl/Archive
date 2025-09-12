@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,11 +33,38 @@ jobs:
         run: npm install
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-      - name: Prepare web deps
-        if: matrix.platform == 'web'
-        run: npm run prebuild:web
       - name: Lint/Typecheck/Test
         run: npm run lint && npm run typecheck && npm test
       - name: Build web
         if: matrix.platform == 'web'
         run: npm run build:web
+      - name: Upload web artifact
+        if: matrix.platform == 'web'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: |
+            dist/**
+            web-build/**
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: ./site
+      - name: Configure Pages
+        uses: actions/configure-pages@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site/dist
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

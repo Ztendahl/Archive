@@ -50,7 +50,7 @@ This app uses a thin DB adapter per platform, all behind `peopleRepository`:
 | Platform  | Adapter                   | Storage path                          |
 |-----------|---------------------------|---------------------------------------|
 | Desktop   | better-sqlite3 (Node)     | Electron `app.getPath('userData')`    |
-| iOS/Android | react-native-quick-sqlite / expo-sqlite | App document directory |
+| iOS/Android | expo-sqlite | App document directory |
 | Web       | sql.js (WASM) or IndexedDB | Browser storage                       |
 
 Migrations are applied via `src/db/migrate.ts` (Node/Web) or on app start (RN).
