@@ -12,13 +12,17 @@ export function createSQLiteNodeAdapter(databasePath: string = 'archive.db'): SQ
       const stmt = db.prepare(sql);
       return {
         run(params?: any): void {
-          stmt.run(params);
+          if (params === undefined) {
+            stmt.run();
+          } else {
+            stmt.run(params);
+          }
         },
         get<T = any>(params?: any): T | undefined {
-          return stmt.get(params) as T | undefined;
+          return (params === undefined ? stmt.get() : stmt.get(params)) as T | undefined;
         },
         all<T = any>(params?: any): T[] {
-          return stmt.all(params) as T[];
+          return (params === undefined ? stmt.all() : stmt.all(params)) as T[];
         },
       };
     },
