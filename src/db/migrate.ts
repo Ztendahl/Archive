@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { createSQLiteNodeAdapter } from './adapters/sqlite-node.js';
+import { createSQLiteNodeAdapter } from './adapters/sqlite-node';
 import type { SQLiteAdapter } from './adapters/types';
 
 export function migrate(db: SQLiteAdapter = createSQLiteNodeAdapter()): void {
