@@ -1,5 +1,5 @@
-import { createPeopleRepository } from './people.repository.js';
-import { createSQLiteNodeAdapter } from './adapters/sqlite-node.js';
+import { createPeopleRepository } from './people.repository';
+import { createSQLiteNodeAdapter } from './adapters/sqlite-node';
 
 export function seed(): void {
   const repo = createPeopleRepository(createSQLiteNodeAdapter());
