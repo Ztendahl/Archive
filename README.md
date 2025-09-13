@@ -47,12 +47,11 @@ the repository.
 
 This app uses a thin DB adapter per platform, all behind `peopleRepository`:
 
-| Platform    | Adapter                | Notes & Storage                                 |
-|-------------|------------------------|-----------------------------------------------|
-
-| Desktop     | better-sqlite3 (Node)  | Stores DB under Electron `app.getPath('userData')` |
-| iOS/Android | expo-sqlite            | Requires Expo SDK 50+, adapter exposed via `globalThis.createSQLiteRNAdapter`; stores in app documents |
-| Web         | sql.js (WASM) + IndexedDB | `ensurePeopleApi()` loads `sql.js`/`initSQLiteWeb` and exposes `window.api.people`; data lives in IndexedDB |
+| Platform    | Adapter                    | Notes & Storage                                                                             |
+|-------------|----------------------------|---------------------------------------------------------------------------------------------|
+| Desktop     | better-sqlite3 (Node)      | Stores DB under Electron `app.getPath('userData')`                                          |
+| iOS/Android | expo-sqlite                | Requires Expo SDK 50+, adapter exposed via `globalThis.createSQLiteRNAdapter`; stores in app documents |
+| Web         | sql.js (WASM) + IndexedDB  | `ensurePeopleApi()` loads `sql.js`/`initSQLiteWeb` and exposes `window.api.people`; data lives in IndexedDB |
 Migrations are applied via `src/db/migrate.ts` (Node/Web) or on app start (RN).
 Schema version is tracked in a single-row table `meta(id INTEGER PRIMARY KEY CHECK (id = 1), schema_version INT)`.
 
@@ -109,4 +108,15 @@ Adapter-specific tests can mock the underlying SQLite library (e.g., mock
 
 The application entry point is located at `src/App.tsx` and uses React Native
 components that work on both mobile and desktop via React Native Web.
+
+## Contributing
+
+Contributions are welcome! Before opening a pull request, please make sure all
+checks pass locally:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+```
 
