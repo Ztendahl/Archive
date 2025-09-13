@@ -26,8 +26,20 @@ export default function PersonForm({ onSaved }: PersonFormProps): React.JSX.Elem
 
   return (
     <View>
-      <TextInput placeholder="First Name" value={firstName} onChangeText={setFirstName} />
-      <TextInput placeholder="Last Name" value={lastName} onChangeText={setLastName} />
+      <TextInput
+        placeholder="First Name"
+        testID="firstName"
+        accessibilityLabel="First Name"
+        value={firstName}
+        onChangeText={setFirstName}
+      />
+      <TextInput
+        placeholder="Last Name"
+        testID="lastName"
+        accessibilityLabel="Last Name"
+        value={lastName}
+        onChangeText={setLastName}
+      />
       <Button title="Save" onPress={onSubmit} />
     </View>
   );

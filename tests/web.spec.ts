@@ -1,47 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { spawn } from 'child_process';
-import http from 'http';
 
-let server;
+test('can add a person via the form', async ({ page }) => {
+  await page.goto('/');
 
-async function waitForServer(url: string, retries = 50): Promise<void> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const req = http.request(url, (res) => {
-          res.resume();
-          resolve();
-        });
-        req.on('error', reject);
-        req.end();
-      });
-      return;
-    } catch {
-      // retry after a short delay
-      await new Promise((r) => setTimeout(r, 100));
-    }
-  }
-  throw new Error('Server did not start');
-}
+  // Wait for sql.js + repository wiring to finish
+  await page.waitForFunction(() => (window as any).api?.people?.save, null, { timeout: 20_000 });
 
-test.beforeAll(async () => {
-  await new Promise<void>((resolve, reject) => {
-    const build = spawn('npm', ['run', 'build:web'], { stdio: 'inherit' });
-    build.on('exit', (code) => (code === 0 ? resolve() : reject(new Error('build failed'))));
-  });
+  // Wait for RN-Web inputs to be present
+  const first = page.getByTestId('firstName');
+  const last = page.getByTestId('lastName');
+  await first.waitFor({ timeout: 10_000 });
+  await last.waitFor({ timeout: 10_000 });
 
-  server = spawn('npm', ['run', 'serve:web'], { stdio: 'inherit' });
-  await waitForServer('http://localhost:4173');
-});
+  await first.fill('Ada');
+  await last.fill('Lovelace');
+  await page.getByRole('button', { name: 'Save' }).click();
 
-test.afterAll(() => {
-  server.kill();
-});
-
-test('form submit adds a row', async ({ page }) => {
-  await page.goto('http://localhost:4173');
-  await page.fill('input[placeholder="First Name"]', 'John');
-  await page.fill('input[placeholder="Last Name"]', 'Doe');
-  await page.click('text=Save');
-  await expect(page.locator('text=John Doe')).toBeVisible();
+  await expect(page.getByText('Ada Lovelace')).toBeVisible({ timeout: 5_000 });
 });

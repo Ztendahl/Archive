@@ -4,14 +4,27 @@
     "module": "ESNext",
     "jsx": "react-jsx",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "verbatimModuleSyntax": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["react", "react-dom", "node", "vitest/globals"]
+    "types": [
+      "react",
+      "react-dom",
+      "node",
+      "vitest/globals",
+      "playwright"
+    ]
   },
-  "include": ["src", "tests"]
+  "include": [
+    "src",
+    "tests"
+  ],
+  "extends": "expo/tsconfig.base"
 }
