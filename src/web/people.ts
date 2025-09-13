@@ -48,7 +48,14 @@ export async function ensurePeopleApi(): Promise<void> {
     window.api = window.api ?? {};
     window.api.people = {
       list: async () => repository.listPeople().map(fromDb),
+      get: async (id: string) => {
+        const found = repository.getPerson(id);
+        return found ? fromDb(found) : undefined;
+      },
       save: async (person: PersonInput) => fromDb(repository.savePerson(toDb(person))),
+      delete: async (id: string) => {
+        repository.deletePerson(id);
+      },
     };
   })();
 

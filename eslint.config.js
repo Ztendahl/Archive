@@ -34,5 +34,15 @@ export default tseslint.config(
         ...globals.node,
       },
     },
+  },
+  {
+    files: ['webpack.config.cjs', 'webpack.config.js', 'scripts/**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
   }
 );
