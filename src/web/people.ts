@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
 import { createPeopleRepository } from '../db/people.repository';
-import type { Person } from '../db/people.repository';
 import type { SQLiteAdapter } from '../db/adapters/types';
 import type { InitSqlJsStatic } from 'sql.js';
+import { fromDb, toDb, type PersonInput } from '../db/people.mapper';
 
 let sqlJsLoadPromise: Promise<void> | null = null;
 let peopleInitPromise: Promise<void> | null = null;
@@ -47,8 +47,8 @@ export async function ensurePeopleApi(): Promise<void> {
 
     window.api = window.api ?? {};
     window.api.people = {
-      list: async () => repository.listPeople(),
-      save: async (person: Person) => repository.savePerson(person),
+      list: async () => repository.listPeople().map(fromDb),
+      save: async (person: PersonInput) => fromDb(repository.savePerson(toDb(person))),
     };
   })();
 

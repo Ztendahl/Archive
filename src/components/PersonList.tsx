@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList } from 'react-native';
-import type { Person } from '../db/people.repository';
+import type { Person } from '../db/people.mapper';
 
 export default function PersonList(): React.JSX.Element {
   const [people, setPeople] = useState<Person[]>([]);
@@ -15,9 +15,9 @@ export default function PersonList(): React.JSX.Element {
     <View>
       <FlatList
         data={people}
-        keyExtractor={(item) => item.id!}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Text>{`${item.first_name || ''} ${item.last_name || ''}`}</Text>
+          <Text>{`${item.firstName || ''} ${item.lastName || ''}`}</Text>
         )}
         ListEmptyComponent={<Text>No people yet</Text>}
       />
