@@ -1,9 +1,6 @@
-import { ExpoConfig } from 'expo';
-
-export default (): ExpoConfig => ({
-  name: 'ArchiveCrossPlatformApp',
-  slug: 'archive-cross-platform-app',
-  version: '1.0.0',
+export default {
+  name: 'Archive',
+  slug: 'archive',
   platforms: ['ios', 'android', 'web'],
-  orientation: 'portrait',
-});
+  web: { bundler: 'webpack' },
+};
