@@ -46,6 +46,8 @@ export interface LayoutNode extends PersonNode {
   x: number;
   y: number;
   layer: number;
+  /** true when representing a union anchor */
+  union?: boolean;
 }
 
 export interface LayoutResult {
@@ -70,7 +72,7 @@ export interface LayoutOptions {
  * structure that can be expanded later.
  */
 export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
-  const { people, edges, focusId, visibility } = options;
+  const { people, edges, unions, focusId, visibility } = options;
 
   const peopleMap = new Map(people.map((p) => [p.id, p]));
 
@@ -107,18 +109,55 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
   traverseUp(focusId, 1);
   traverseDown(focusId, 1);
 
+  // Ensure union partners are placed on the same layer
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const u of unions) {
+      const aLayer = layers.get(u.aId);
+      const bLayer = layers.get(u.bId);
+      if (aLayer !== undefined && bLayer === undefined && peopleMap.has(u.bId)) {
+        layers.set(u.bId, aLayer);
+        changed = true;
+      } else if (
+        bLayer !== undefined &&
+        aLayer === undefined &&
+        peopleMap.has(u.aId)
+      ) {
+        layers.set(u.aId, bLayer);
+        changed = true;
+      }
+    }
+  }
+
   const nodesByLayer = new Map<number, string[]>();
   for (const [id, layer] of layers.entries()) {
     if (!nodesByLayer.has(layer)) nodesByLayer.set(layer, []);
     nodesByLayer.get(layer)!.push(id);
   }
 
+  // determine earliest union start per person for ordering
+  const earliestUnion = new Map<string, number>();
+  for (const u of unions) {
+    if (u.start === undefined) continue;
+    for (const pid of [u.aId, u.bId]) {
+      const prev = earliestUnion.get(pid);
+      if (prev === undefined || u.start < prev) earliestUnion.set(pid, u.start);
+    }
+  }
+
   for (const ids of nodesByLayer.values()) {
     ids.sort((a, b) => {
+      const ua = earliestUnion.get(a) ?? Number.MAX_SAFE_INTEGER;
+      const ub = earliestUnion.get(b) ?? Number.MAX_SAFE_INTEGER;
+      if (ua !== ub) return ua - ub;
       const pa = peopleMap.get(a)!;
       const pb = peopleMap.get(b)!;
-      const byBirth = (pa.birthYear ?? 0) - (pb.birthYear ?? 0);
+      const byBirth = (pa.birthYear ?? Number.MAX_SAFE_INTEGER) -
+        (pb.birthYear ?? Number.MAX_SAFE_INTEGER);
       if (byBirth !== 0) return byBirth;
+      const byLast = (pa.lastName ?? '').localeCompare(pb.lastName ?? '');
+      if (byLast !== 0) return byLast;
       return (pa.firstName ?? '').localeCompare(pb.firstName ?? '');
     });
   }
@@ -139,5 +178,51 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
     });
   }
 
-  return { nodes: layoutNodes, edges };
+  // create union anchors between partners
+  const layoutMap = new Map(layoutNodes.map((n) => [n.id, n]));
+  const unionNodes: LayoutNode[] = [];
+  for (const u of unions) {
+    const a = layoutMap.get(u.aId);
+    const b = layoutMap.get(u.bId);
+    if (a && b) {
+      const x = (a.x + b.x) / 2;
+      const y = a.y; // same layer as partners
+      const node: LayoutNode = { id: u.id, x, y, layer: a.layer, union: true };
+      unionNodes.push(node);
+    }
+  }
+
+  // remap parent-child edges to union anchors when both parents are present
+  const edgesByChild = new Map<string, ParentChildEdge[]>();
+  for (const e of edges) {
+    if (!edgesByChild.has(e.childId)) edgesByChild.set(e.childId, []);
+    edgesByChild.get(e.childId)!.push(e);
+  }
+
+  const newEdges: ParentChildEdge[] = [];
+  for (const [childId, list] of edgesByChild.entries()) {
+    let handled = false;
+    for (const u of unions) {
+      const hasA = list.some((e) => e.parentId === u.aId);
+      const hasB = list.some((e) => e.parentId === u.bId);
+      if (hasA && hasB) {
+        newEdges.push({ parentId: u.id, childId, role: 'bio' });
+        handled = true;
+        break;
+      }
+    }
+    if (!handled) newEdges.push(...list);
+  }
+
+  // align children under their union anchors
+  const anchorMap = new Map(unionNodes.map((n) => [n.id, n]));
+  for (const e of newEdges) {
+    const anchor = anchorMap.get(e.parentId);
+    if (anchor) {
+      const child = layoutMap.get(e.childId);
+      if (child) child.x = anchor.x;
+    }
+  }
+
+  return { nodes: [...layoutNodes, ...unionNodes], edges: newEdges };
 }
