@@ -91,6 +91,14 @@ describe('layoutFamilyGraph', () => {
       { id: 'a', firstName: 'Ann', birthYear: 1980 },
       { id: 'b', firstName: 'Bob', birthYear: 1975 },
       { id: 'c', firstName: 'Cal', birthYear: 1985 },
+      { id: 'd', firstName: 'D' },
+      { id: 'e', firstName: 'E' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'a', childId: 'd', role: 'bio' },
+      { parentId: 'b', childId: 'd', role: 'bio' },
+      { parentId: 'a', childId: 'e', role: 'bio' },
+      { parentId: 'c', childId: 'e', role: 'bio' },
     ];
     const unions = [
       { id: 'u1', aId: 'a', bId: 'b', start: 1990 },
@@ -103,7 +111,7 @@ describe('layoutFamilyGraph', () => {
     };
     const result = layoutFamilyGraph({
       people,
-      edges: [],
+      edges,
       unions,
       focusId: 'a',
       visibility,
@@ -113,5 +121,142 @@ describe('layoutFamilyGraph', () => {
       .sort((a, b) => a.x - b.x)
       .map((n) => n.id);
     expect(layer0).toEqual(['b', 'a', 'c']);
+  });
+
+  it('respects generation caps', () => {
+    const people: PersonNode[] = [
+      { id: 'gp' },
+      { id: 'p' },
+      { id: 'f' },
+      { id: 'c' },
+      { id: 'gc' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'gp', childId: 'p', role: 'bio' },
+      { parentId: 'p', childId: 'f', role: 'bio' },
+      { parentId: 'f', childId: 'c', role: 'bio' },
+      { parentId: 'c', childId: 'gc', role: 'bio' },
+    ];
+    const visibility1: Visibility = {
+      maxUpGenerations: 1,
+      maxDownGenerations: 1,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const r1 = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'f',
+      visibility: visibility1,
+    });
+    expect(r1.nodes.map((n) => n.id).sort()).toEqual(['c', 'f', 'p'].sort());
+
+    const visibility2: Visibility = {
+      maxUpGenerations: 2,
+      maxDownGenerations: 2,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const r2 = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'f',
+      visibility: visibility2,
+    });
+    expect(r2.nodes.some((n) => n.id === 'gp')).toBe(true);
+    expect(r2.nodes.some((n) => n.id === 'gc')).toBe(true);
+    expect(r2.nodes.length).toBeGreaterThan(r1.nodes.length);
+  });
+
+  it('collapses and expands branches with placeholders', () => {
+    const people: PersonNode[] = [
+      { id: 'p1' },
+      { id: 'p2' },
+      { id: 'f' },
+      { id: 'c1' },
+      { id: 'c2' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'p1', childId: 'f', role: 'bio' },
+      { parentId: 'p2', childId: 'f', role: 'bio' },
+      { parentId: 'f', childId: 'c1', role: 'bio' },
+      { parentId: 'f', childId: 'c2', role: 'bio' },
+    ];
+    const visibility: Visibility = {
+      maxUpGenerations: 5,
+      maxDownGenerations: 5,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+
+    const collapsed = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'f',
+      visibility,
+      expansions: { f: { showParents: false, showChildren: false } },
+    });
+    const placeholders = collapsed.nodes.filter((n) => n.placeholder);
+    expect(placeholders.length).toBe(2);
+    const parentPlaceholder = placeholders.find((n) => n.id.includes('parents'));
+    const childPlaceholder = placeholders.find((n) => n.id.includes('children'));
+    expect(parentPlaceholder?.count).toBe(2);
+    expect(childPlaceholder?.count).toBe(2);
+
+    const expanded = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'f',
+      visibility,
+      expansions: { f: { showParents: false, showChildren: true } },
+    });
+    expect(expanded.nodes.some((n) => n.id === 'c1')).toBe(true);
+    expect(expanded.nodes.some((n) => n.id === 'c2')).toBe(true);
+    expect(expanded.nodes.filter((n) => n.id === 'f:children').length).toBe(0);
+    const childXs = expanded.nodes
+      .filter((n) => n.id === 'c1' || n.id === 'c2')
+      .map((n) => n.x);
+    expect(new Set(childXs).size).toBe(childXs.length);
+  });
+
+  it('includes partners for visible unions only', () => {
+    const people: PersonNode[] = [
+      { id: 'a' },
+      { id: 'b' },
+      { id: 'c' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'a', childId: 'c', role: 'bio' },
+      { parentId: 'b', childId: 'c', role: 'bio' },
+    ];
+    const unions = [{ id: 'u', aId: 'a', bId: 'b' }];
+    const visibility: Visibility = {
+      maxUpGenerations: 1,
+      maxDownGenerations: 1,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+
+    const showChild = layoutFamilyGraph({
+      people,
+      edges,
+      unions,
+      focusId: 'a',
+      visibility,
+      expansions: { a: { showChildren: true } },
+    });
+    expect(showChild.nodes.some((n) => n.id === 'b')).toBe(true);
+    expect(showChild.nodes.some((n) => n.id === 'u' && n.union)).toBe(true);
+
+    const hideChild = layoutFamilyGraph({
+      people,
+      edges,
+      unions,
+      focusId: 'a',
+      visibility,
+      expansions: { a: { showChildren: false } },
+    });
+    expect(hideChild.nodes.some((n) => n.id === 'b')).toBe(false);
+    expect(hideChild.nodes.some((n) => n.id === 'u')).toBe(false);
   });
 });
