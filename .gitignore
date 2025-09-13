@@ -7,6 +7,8 @@ yarn-error.log
 
 # Expo
 web-build
+dist/
 android
 ios
 public/sql-wasm.wasm
+test-results/

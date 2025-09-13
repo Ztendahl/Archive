@@ -1,5 +1,6 @@
 import type { SQLiteAdapter } from './types';
-import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
+import initSqlJs from 'sql.js';
+import wasmUrl from 'sql.js/dist/sql-wasm.wasm';
 
 const DB_NAME = 'archive.db';
 const STORE_NAME = 'db';
@@ -8,10 +9,7 @@ let db: any = null;
 let initPromise: Promise<void> | null = null;
 
 async function initialize(): Promise<void> {
-  if (!(globalThis as any).initSqlJs) {
-    throw new Error('sql.js not loaded: ensure initSqlJs is available before initializing the web adapter');
-  }
-  const SQL = await (globalThis as any).initSqlJs({
+  const SQL = await initSqlJs({
     locateFile: () => wasmUrl,
   });
   const data = await loadFromIndexedDB();
