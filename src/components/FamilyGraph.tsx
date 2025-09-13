@@ -6,8 +6,8 @@ import type {
   Union,
   Visibility,
 } from '../graph/familyLayout';
-import { layoutFamilyGraph } from '../graph/familyLayout';
 import { edgeStyle, filterEdgesByRole } from '../graph/edgeStyles';
+import type { LayoutWorkerResponse, LayoutWorkerRequest } from '../graph/layoutWorker';
 
 interface FamilyGraphProps {
   people: PersonNode[];
@@ -30,13 +30,12 @@ export default function FamilyGraph({
   focusId,
   visibility,
 }: FamilyGraphProps): React.JSX.Element {
-  const [layout, setLayout] = useState<LayoutResult>(() =>
-    layoutFamilyGraph({ people, edges, unions, focusId, visibility }),
-  );
+  const [layout, setLayout] = useState<LayoutResult>({ nodes: [], edges: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [currentFocus, setCurrentFocus] = useState(focusId);
   const [showRoles, setShowRoles] = useState(visibility.showRoles);
   const [transform, setTransform] = useState<Transform>({ x: 0, y: 0, scale: 1 });
+  const workerRef = useRef<Worker | null>(null);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
@@ -75,20 +74,30 @@ export default function FamilyGraph({
     setSelectedId(id);
   };
   const handleDoubleClickNode = (id: string) => {
-    const newLayout = layoutFamilyGraph({
-      people,
-      edges,
-      unions,
-      focusId: id,
-      visibility,
-    });
-    setLayout(newLayout);
     setCurrentFocus(id);
     setTransform({ x: 0, y: 0, scale: 1 });
   };
 
   useEffect(() => {
-    setLayout(layoutFamilyGraph({ people, edges, unions, focusId: currentFocus, visibility }));
+    const worker = new Worker(new URL('../graph/layoutWorker.ts', import.meta.url));
+    workerRef.current = worker;
+    worker.onmessage = (e: MessageEvent<LayoutWorkerResponse>) => {
+      setLayout(e.data);
+    };
+    return () => worker.terminate();
+  }, []);
+
+  useEffect(() => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    const message: LayoutWorkerRequest = {
+      people,
+      edges,
+      unions,
+      focusId: currentFocus,
+      visibility,
+    };
+    worker.postMessage(message);
   }, [people, edges, unions, currentFocus, visibility]);
 
   const visibleEdges = filterEdgesByRole(layout.edges, showRoles);
@@ -98,6 +107,9 @@ export default function FamilyGraph({
   };
 
   const resetView = () => setTransform({ x: 0, y: 0, scale: 1 });
+
+  const hideLabels = transform.scale < 0.5;
+  const tiny = transform.scale < 0.25;
 
   return (
     <div>
@@ -166,11 +178,16 @@ export default function FamilyGraph({
               }}
             >
               <circle
-                r={10}
+                r={tiny ? 3 : 10}
                 fill={n.id === selectedId ? 'orange' : n.union ? '#ccc' : '#fff'}
                 stroke="#000"
               />
-              {n.firstName && <text x={12} y={4}>{n.firstName}</text>}
+              {!hideLabels && !tiny && n.firstName && <text x={12} y={4}>{n.firstName}</text>}
+              {tiny && n.count && (
+                <text x={4} y={4} fontSize={4}>
+                  {n.count}
+                </text>
+              )}
             </g>
           ))}
         </g>
