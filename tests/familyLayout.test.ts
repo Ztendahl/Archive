@@ -259,4 +259,109 @@ describe('layoutFamilyGraph', () => {
     expect(hideChild.nodes.some((n) => n.id === 'b')).toBe(false);
     expect(hideChild.nodes.some((n) => n.id === 'u')).toBe(false);
   });
+
+  it('maintains positions when toggling children', () => {
+    const people: PersonNode[] = [
+      { id: 'gp' },
+      { id: 'p' },
+      { id: 'c1' },
+      { id: 'c2' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'gp', childId: 'p', role: 'bio' },
+      { parentId: 'p', childId: 'c1', role: 'bio' },
+      { parentId: 'p', childId: 'c2', role: 'bio' },
+    ];
+    const visibility: Visibility = {
+      maxUpGenerations: 5,
+      maxDownGenerations: 5,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const expanded = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'p',
+      visibility,
+      expansions: { p: { showChildren: true } },
+    });
+    const collapsed = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'p',
+      visibility,
+      expansions: { p: { showChildren: false } },
+    });
+    const deltas = ['gp', 'p'].map((id) => {
+      const a = expanded.nodes.find((n) => n.id === id)!;
+      const b = collapsed.nodes.find((n) => n.id === id)!;
+      return { id, dx: b.x - a.x, dy: b.y - a.y };
+    });
+    expect(deltas).toMatchInlineSnapshot(`
+      [
+        {
+          "dx": 0,
+          "dy": 0,
+          "id": "gp",
+        },
+        {
+          "dx": 0,
+          "dy": 0,
+          "id": "p",
+        },
+      ]
+    `);
+  });
+
+  it('keeps existing node positions stable when adding an edge', () => {
+    const people: PersonNode[] = [
+      { id: 'p' },
+      { id: 'c1' },
+      { id: 'c2' },
+    ];
+    const edges1: ParentChildEdge[] = [{ parentId: 'p', childId: 'c1', role: 'bio' }];
+    const edges2: ParentChildEdge[] = [
+      { parentId: 'p', childId: 'c1', role: 'bio' },
+      { parentId: 'p', childId: 'c2', role: 'bio' },
+    ];
+    const visibility: Visibility = {
+      maxUpGenerations: 5,
+      maxDownGenerations: 5,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const r1 = layoutFamilyGraph({
+      people,
+      edges: edges1,
+      unions: [],
+      focusId: 'p',
+      visibility,
+    });
+    const r2 = layoutFamilyGraph({
+      people,
+      edges: edges2,
+      unions: [],
+      focusId: 'p',
+      visibility,
+    });
+    const deltas = ['p', 'c1'].map((id) => {
+      const a = r1.nodes.find((n) => n.id === id)!;
+      const b = r2.nodes.find((n) => n.id === id)!;
+      return { id, dx: b.x - a.x, dy: b.y - a.y };
+    });
+    expect(deltas).toMatchInlineSnapshot(`
+      [
+        {
+          "dx": 0,
+          "dy": 0,
+          "id": "p",
+        },
+        {
+          "dx": 0,
+          "dy": 0,
+          "id": "c1",
+        },
+      ]
+    `);
+  });
 });
