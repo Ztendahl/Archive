@@ -42,12 +42,21 @@ export interface Visibility {
   };
 }
 
+export interface ExpansionState {
+  showParents?: boolean;
+  showChildren?: boolean;
+}
+
 export interface LayoutNode extends PersonNode {
   x: number;
   y: number;
   layer: number;
   /** true when representing a union anchor */
   union?: boolean;
+  /** true when representing a collapsed branch */
+  placeholder?: boolean;
+  /** number of hidden nodes represented by the placeholder */
+  count?: number;
 }
 
 export interface LayoutResult {
@@ -61,6 +70,7 @@ export interface LayoutOptions {
   unions: Union[];
   focusId: string;
   visibility: Visibility;
+  expansions?: Record<string, ExpansionState>;
 }
 
 /**
@@ -72,36 +82,55 @@ export interface LayoutOptions {
  * structure that can be expanded later.
  */
 export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
-  const { people, edges, unions, focusId, visibility } = options;
+  const { people, edges, unions, focusId, visibility, expansions = {} } = options;
 
   const peopleMap = new Map(people.map((p) => [p.id, p]));
+
+  // Build adjacency maps for efficient traversal
+  const parentsByChild = new Map<string, ParentChildEdge[]>();
+  const childrenByParent = new Map<string, ParentChildEdge[]>();
+  for (const e of edges) {
+    if (!parentsByChild.has(e.childId)) parentsByChild.set(e.childId, []);
+    parentsByChild.get(e.childId)!.push(e);
+    if (!childrenByParent.has(e.parentId)) childrenByParent.set(e.parentId, []);
+    childrenByParent.get(e.parentId)!.push(e);
+  }
 
   // Compute generation offsets relative to focus
   const layers = new Map<string, number>();
   layers.set(focusId, 0);
 
+  const collapsedParents = new Map<string, number>();
+  const collapsedChildren = new Map<string, number>();
+
   function traverseUp(id: string, depth: number): void {
     if (depth > visibility.maxUpGenerations) return;
-    for (const e of edges) {
-      if (e.childId === id) {
-        const pId = e.parentId;
-        if (!layers.has(pId) || (layers.get(pId) ?? 0) > -depth) {
-          layers.set(pId, -depth);
-          traverseUp(pId, depth + 1);
-        }
+    if (expansions[id]?.showParents === false) {
+      const count = parentsByChild.get(id)?.length ?? 0;
+      if (count > 0) collapsedParents.set(id, count);
+      return;
+    }
+    for (const e of parentsByChild.get(id) ?? []) {
+      const pId = e.parentId;
+      if (!layers.has(pId) || (layers.get(pId) ?? 0) > -depth) {
+        layers.set(pId, -depth);
+        traverseUp(pId, depth + 1);
       }
     }
   }
 
   function traverseDown(id: string, depth: number): void {
     if (depth > visibility.maxDownGenerations) return;
-    for (const e of edges) {
-      if (e.parentId === id) {
-        const cId = e.childId;
-        if (!layers.has(cId) || (layers.get(cId) ?? 0) < depth) {
-          layers.set(cId, depth);
-          traverseDown(cId, depth + 1);
-        }
+    if (expansions[id]?.showChildren === false) {
+      const count = childrenByParent.get(id)?.length ?? 0;
+      if (count > 0) collapsedChildren.set(id, count);
+      return;
+    }
+    for (const e of childrenByParent.get(id) ?? []) {
+      const cId = e.childId;
+      if (!layers.has(cId) || (layers.get(cId) ?? 0) < depth) {
+        layers.set(cId, depth);
+        traverseDown(cId, depth + 1);
       }
     }
   }
@@ -109,15 +138,30 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
   traverseUp(focusId, 1);
   traverseDown(focusId, 1);
 
-  // Ensure union partners are placed on the same layer
+  // Ensure union partners are placed on the same layer only when union is anchored
   let changed = true;
   while (changed) {
     changed = false;
+    const newly: string[] = [];
     for (const u of unions) {
+      // Determine if this union anchors a visible child
+      let anchored = false;
+      for (const [childId, list] of parentsByChild.entries()) {
+        if (!layers.has(childId)) continue;
+        const hasA = list.some((e) => e.parentId === u.aId);
+        const hasB = list.some((e) => e.parentId === u.bId);
+        if (hasA && hasB) {
+          anchored = true;
+          break;
+        }
+      }
+      if (!anchored) continue;
+
       const aLayer = layers.get(u.aId);
       const bLayer = layers.get(u.bId);
       if (aLayer !== undefined && bLayer === undefined && peopleMap.has(u.bId)) {
         layers.set(u.bId, aLayer);
+        newly.push(u.bId);
         changed = true;
       } else if (
         bLayer !== undefined &&
@@ -125,8 +169,13 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
         peopleMap.has(u.aId)
       ) {
         layers.set(u.aId, bLayer);
+        newly.push(u.aId);
         changed = true;
       }
+    }
+    for (const id of newly) {
+      traverseUp(id, 1);
+      traverseDown(id, 1);
     }
   }
 
@@ -193,8 +242,11 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
   }
 
   // remap parent-child edges to union anchors when both parents are present
+  const visibleEdges = edges.filter(
+    (e) => layers.has(e.parentId) && layers.has(e.childId),
+  );
   const edgesByChild = new Map<string, ParentChildEdge[]>();
-  for (const e of edges) {
+  for (const e of visibleEdges) {
     if (!edgesByChild.has(e.childId)) edgesByChild.set(e.childId, []);
     edgesByChild.get(e.childId)!.push(e);
   }
@@ -224,5 +276,34 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
     }
   }
 
-  return { nodes: [...layoutNodes, ...unionNodes], edges: newEdges };
+  // add placeholders for collapsed branches
+  const placeholderNodes: LayoutNode[] = [];
+  for (const [id, count] of collapsedParents.entries()) {
+    const base = layoutMap.get(id);
+    if (base) {
+      placeholderNodes.push({
+        id: `${id}:parents`,
+        x: base.x,
+        y: base.y - verticalSpacing,
+        layer: base.layer - 1,
+        placeholder: true,
+        count,
+      });
+    }
+  }
+  for (const [id, count] of collapsedChildren.entries()) {
+    const base = layoutMap.get(id);
+    if (base) {
+      placeholderNodes.push({
+        id: `${id}:children`,
+        x: base.x,
+        y: base.y + verticalSpacing,
+        layer: base.layer + 1,
+        placeholder: true,
+        count,
+      });
+    }
+  }
+
+  return { nodes: [...layoutNodes, ...unionNodes, ...placeholderNodes], edges: newEdges };
 }
