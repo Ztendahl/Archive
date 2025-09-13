@@ -80,22 +80,52 @@ export interface LayoutOptions {
  * genealogy renderer described in the project objectives. It computes relative
  * layers (generations) around a focus person and assigns basic x/y coordinates
  * so the graph can be rendered. The algorithm intentionally omits advanced
- * ordering, union bands and step/guardian/foster derivations but provides a
- * structure that can be expanded later.
+ * ordering or union bands but provides a structure that can be expanded later.
  */
 export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
   const { people, edges, unions, focusId, visibility, expansions = {} } = options;
 
   const peopleMap = new Map(people.map((p) => [p.id, p]));
 
+  // clone so we can derive additional edges without mutating inputs
+  const allEdges: ParentChildEdge[] = [...edges];
+
   // Build adjacency maps for efficient traversal
   const parentsByChild = new Map<string, ParentChildEdge[]>();
   const childrenByParent = new Map<string, ParentChildEdge[]>();
-  for (const e of edges) {
+  for (const e of allEdges) {
     if (!parentsByChild.has(e.childId)) parentsByChild.set(e.childId, []);
     parentsByChild.get(e.childId)!.push(e);
     if (!childrenByParent.has(e.parentId)) childrenByParent.set(e.parentId, []);
     childrenByParent.get(e.parentId)!.push(e);
+  }
+
+  // derive step edges from unions when a partner has children the other does not
+  for (const u of unions) {
+    const aChildren = childrenByParent.get(u.aId) ?? [];
+    const bChildren = childrenByParent.get(u.bId) ?? [];
+    for (const ce of aChildren) {
+      const list = parentsByChild.get(ce.childId) ?? [];
+      if (!list.some((e) => e.parentId === u.bId)) {
+        const se: ParentChildEdge = { parentId: u.bId, childId: ce.childId, role: 'step' };
+        allEdges.push(se);
+        if (!parentsByChild.has(ce.childId)) parentsByChild.set(ce.childId, []);
+        parentsByChild.get(ce.childId)!.push(se);
+        if (!childrenByParent.has(u.bId)) childrenByParent.set(u.bId, []);
+        childrenByParent.get(u.bId)!.push(se);
+      }
+    }
+    for (const ce of bChildren) {
+      const list = parentsByChild.get(ce.childId) ?? [];
+      if (!list.some((e) => e.parentId === u.aId)) {
+        const se: ParentChildEdge = { parentId: u.aId, childId: ce.childId, role: 'step' };
+        allEdges.push(se);
+        if (!parentsByChild.has(ce.childId)) parentsByChild.set(ce.childId, []);
+        parentsByChild.get(ce.childId)!.push(se);
+        if (!childrenByParent.has(u.aId)) childrenByParent.set(u.aId, []);
+        childrenByParent.get(u.aId)!.push(se);
+      }
+    }
   }
 
   // Compute generation offsets relative to focus
@@ -106,7 +136,11 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
   const collapsedChildren = new Map<string, number>();
 
   function traverseUp(id: string, depth: number): void {
-    if (depth > visibility.maxUpGenerations) return;
+    if (depth > visibility.maxUpGenerations) {
+      const count = parentsByChild.get(id)?.length ?? 0;
+      if (count > 0) collapsedParents.set(id, count);
+      return;
+    }
     if (expansions[id]?.showParents === false) {
       const count = parentsByChild.get(id)?.length ?? 0;
       if (count > 0) collapsedParents.set(id, count);
@@ -122,7 +156,11 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
   }
 
   function traverseDown(id: string, depth: number): void {
-    if (depth > visibility.maxDownGenerations) return;
+    if (depth > visibility.maxDownGenerations) {
+      const count = childrenByParent.get(id)?.length ?? 0;
+      if (count > 0) collapsedChildren.set(id, count);
+      return;
+    }
     if (expansions[id]?.showChildren === false) {
       const count = childrenByParent.get(id)?.length ?? 0;
       if (count > 0) collapsedChildren.set(id, count);
@@ -245,7 +283,7 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
   }
 
   // remap parent-child edges to union anchors when both parents are present
-  const visibleEdges = edges.filter(
+  const visibleEdges = allEdges.filter(
     (e) => layers.has(e.parentId) && layers.has(e.childId),
   );
   const edgesByChild = new Map<string, ParentChildEdge[]>();
@@ -258,8 +296,13 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
   for (const [childId, list] of edgesByChild.entries()) {
     let handled = false;
     for (const u of unions) {
-      const hasA = list.some((e) => e.parentId === u.aId);
-      const hasB = list.some((e) => e.parentId === u.bId);
+      const parentRoles = ['bio', 'adoptive'];
+      const hasA = list.some(
+        (e) => e.parentId === u.aId && parentRoles.includes(e.role),
+      );
+      const hasB = list.some(
+        (e) => e.parentId === u.bId && parentRoles.includes(e.role),
+      );
       if (hasA && hasB) {
         newEdges.push({ parentId: u.id, childId, role: 'bio' });
         handled = true;

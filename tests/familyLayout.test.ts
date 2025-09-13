@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { performance } from 'node:perf_hooks';
 import { layoutFamilyGraph } from '../src/graph/familyLayout';
 import type {
   PersonNode,
   ParentChildEdge,
   Visibility,
+  LayoutResult,
 } from '../src/graph/familyLayout';
 
 describe('layoutFamilyGraph', () => {
@@ -149,7 +151,9 @@ describe('layoutFamilyGraph', () => {
       focusId: 'f',
       visibility: visibility1,
     });
-    expect(r1.nodes.map((n) => n.id).sort()).toEqual(['c', 'f', 'p'].sort());
+    expect(r1.nodes.map((n) => n.id).sort()).toEqual(
+      ['c', 'c:children', 'f', 'p', 'p:parents'].sort(),
+    );
 
     const visibility2: Visibility = {
       maxUpGenerations: 2,
@@ -165,7 +169,9 @@ describe('layoutFamilyGraph', () => {
     });
     expect(r2.nodes.some((n) => n.id === 'gp')).toBe(true);
     expect(r2.nodes.some((n) => n.id === 'gc')).toBe(true);
-    expect(r2.nodes.length).toBeGreaterThan(r1.nodes.length);
+    expect(r2.nodes.some((n) => n.id === 'p:parents')).toBe(false);
+    expect(r2.nodes.some((n) => n.id === 'c:children')).toBe(false);
+    expect(r2.nodes.length).toBe(r1.nodes.length);
   });
 
   it('collapses and expands branches with placeholders', () => {
@@ -415,5 +421,606 @@ describe('layoutFamilyGraph', () => {
         },
       ]
     `);
+  });
+
+  it('anchors children consistently regardless of partner order', () => {
+    const people: PersonNode[] = [
+      { id: 'a' },
+      { id: 'b' },
+      { id: 'x' },
+      { id: 'y' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'a', childId: 'x', role: 'bio' },
+      { parentId: 'b', childId: 'x', role: 'bio' },
+      { parentId: 'a', childId: 'y', role: 'bio' },
+      { parentId: 'b', childId: 'y', role: 'bio' },
+    ];
+    const unions1 = [{ id: 'u', aId: 'a', bId: 'b' }];
+    const unions2 = [{ id: 'u', aId: 'b', bId: 'a' }];
+    const visibility: Visibility = {
+      maxUpGenerations: 5,
+      maxDownGenerations: 5,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const r1 = layoutFamilyGraph({
+      people,
+      edges,
+      unions: unions1,
+      focusId: 'a',
+      visibility,
+    });
+    const r2 = layoutFamilyGraph({
+      people,
+      edges,
+      unions: unions2,
+      focusId: 'a',
+      visibility,
+    });
+    const childOrder = (r: LayoutResult) =>
+      r.nodes
+        .filter((n) => n.layer === 1 && !n.union)
+        .sort((a, b) => a.x - b.x)
+        .map((n) => n.id);
+    expect(childOrder(r1)).toEqual(childOrder(r2));
+    const anchor1 = r1.nodes.find((n) => n.id === 'u');
+    const anchor2 = r2.nodes.find((n) => n.id === 'u');
+    const childX1 = r1.nodes.find((n) => n.id === 'x');
+    const childX2 = r2.nodes.find((n) => n.id === 'x');
+    expect(childX1?.x).toBe(anchor1?.x);
+    expect(childX2?.x).toBe(anchor2?.x);
+  });
+
+  it('derives step edges from unions without duplicates', () => {
+    const people: PersonNode[] = [
+      { id: 'a' },
+      { id: 'b' },
+      { id: 'c' },
+      { id: 'e' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'a', childId: 'c', role: 'bio' },
+      { parentId: 'a', childId: 'e', role: 'bio' },
+      { parentId: 'b', childId: 'e', role: 'bio' },
+    ];
+    const unions = [{ id: 'u', aId: 'a', bId: 'b' }];
+    const visibility: Visibility = {
+      maxUpGenerations: 5,
+      maxDownGenerations: 5,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const withUnion = layoutFamilyGraph({
+      people,
+      edges,
+      unions,
+      focusId: 'c',
+      visibility,
+    });
+    expect(
+      withUnion.edges.some(
+        (e) => e.parentId === 'b' && e.childId === 'c' && e.role === 'step',
+      ),
+    ).toBe(true);
+
+    const withUnionE = layoutFamilyGraph({
+      people,
+      edges,
+      unions,
+      focusId: 'e',
+      visibility,
+    });
+    const eEdges = withUnionE.edges.filter((e) => e.childId === 'e');
+    expect(eEdges).toEqual([{ parentId: 'u', childId: 'e', role: 'bio' }]);
+
+    const withoutUnion = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'c',
+      visibility,
+    });
+    expect(
+      withoutUnion.edges.some((e) => e.parentId === 'b' && e.childId === 'c'),
+    ).toBe(false);
+  });
+
+  it('provides placeholders when generation caps hide relatives', () => {
+    const people: PersonNode[] = [
+      { id: 'gp' },
+      { id: 'p' },
+      { id: 'f' },
+      { id: 'c' },
+      { id: 'gc' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'gp', childId: 'p', role: 'bio' },
+      { parentId: 'p', childId: 'f', role: 'bio' },
+      { parentId: 'f', childId: 'c', role: 'bio' },
+      { parentId: 'c', childId: 'gc', role: 'bio' },
+    ];
+    const visibility: Visibility = {
+      maxUpGenerations: 1,
+      maxDownGenerations: 1,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const r = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'f',
+      visibility,
+    });
+    const up = r.nodes.filter((n) => n.layer === -1 && !n.placeholder);
+    const down = r.nodes.filter((n) => n.layer === 1 && !n.placeholder);
+    expect(up.map((n) => n.id)).toEqual(['p']);
+    expect(down.map((n) => n.id)).toEqual(['c']);
+    const pPlaceholder = r.nodes.find((n) => n.id === 'p:parents');
+    const cPlaceholder = r.nodes.find((n) => n.id === 'c:children');
+    expect(pPlaceholder?.count).toBe(1);
+    expect(cPlaceholder?.count).toBe(1);
+  });
+
+  it('captures golden layouts for key scenarios', () => {
+    const visibility: Visibility = {
+      maxUpGenerations: 5,
+      maxDownGenerations: 5,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const simple = (res: LayoutResult) => ({
+      nodes: res.nodes
+        .map((n) => ({
+          id: n.id,
+          x: n.x,
+          y: n.y,
+          layer: n.layer,
+          union: !!n.union,
+          placeholder: !!n.placeholder,
+          count: n.count,
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+      edges: res.edges
+        .map((e) => ({ parentId: e.parentId, childId: e.childId, role: e.role }))
+        .sort((a, b) => a.childId.localeCompare(b.childId)),
+    });
+
+    // single union
+    const people1: PersonNode[] = [
+      { id: 'a', birthYear: 1980 },
+      { id: 'b', birthYear: 1981 },
+      { id: 'c' },
+    ];
+    const edges1: ParentChildEdge[] = [
+      { parentId: 'a', childId: 'c', role: 'bio' },
+      { parentId: 'b', childId: 'c', role: 'bio' },
+    ];
+    const unions1 = [{ id: 'u1', aId: 'a', bId: 'b', start: 2000 }];
+    const r1 = simple(
+      layoutFamilyGraph({ people: people1, edges: edges1, unions: unions1, focusId: 'a', visibility }),
+    );
+
+    // multiple unions
+    const people2: PersonNode[] = [
+      { id: 'a', birthYear: 1980 },
+      { id: 'b', birthYear: 1978 },
+      { id: 'c', birthYear: 1982 },
+      { id: 'd' },
+      { id: 'e' },
+    ];
+    const edges2: ParentChildEdge[] = [
+      { parentId: 'a', childId: 'd', role: 'bio' },
+      { parentId: 'b', childId: 'd', role: 'bio' },
+      { parentId: 'a', childId: 'e', role: 'bio' },
+      { parentId: 'c', childId: 'e', role: 'bio' },
+    ];
+    const unions2 = [
+      { id: 'u1', aId: 'a', bId: 'b', start: 2000 },
+      { id: 'u2', aId: 'a', bId: 'c', start: 2005 },
+    ];
+    const r2 = simple(
+      layoutFamilyGraph({ people: people2, edges: edges2, unions: unions2, focusId: 'a', visibility }),
+    );
+
+    // step edges
+    const people3: PersonNode[] = [
+      { id: 'a' },
+      { id: 'b' },
+      { id: 'c' },
+    ];
+    const edges3: ParentChildEdge[] = [{ parentId: 'a', childId: 'c', role: 'bio' }];
+    const unions3 = [{ id: 'u', aId: 'a', bId: 'b' }];
+    const r3 = simple(
+      layoutFamilyGraph({ people: people3, edges: edges3, unions: unions3, focusId: 'c', visibility }),
+    );
+
+    // large sibling set
+    const people4: PersonNode[] = [
+      { id: 'p' },
+      ...Array.from({ length: 12 }, (_, i) => ({ id: `c${i}` })),
+    ];
+    const edges4: ParentChildEdge[] = people4
+      .filter((p) => p.id !== 'p')
+      .map((c) => ({ parentId: 'p', childId: c.id, role: 'bio' }));
+    const r4 = simple(
+      layoutFamilyGraph({ people: people4, edges: edges4, unions: [], focusId: 'p', visibility }),
+    );
+
+    expect({ r1, r2, r3, r4 }).toMatchInlineSnapshot(`
+      {
+        "r1": {
+          "edges": [
+            {
+              "childId": "c",
+              "parentId": "u1",
+              "role": "bio",
+            },
+          ],
+          "nodes": [
+            {
+              "count": undefined,
+              "id": "a",
+              "layer": 0,
+              "placeholder": false,
+              "union": false,
+              "x": 0,
+              "y": 0,
+            },
+            {
+              "count": undefined,
+              "id": "b",
+              "layer": 0,
+              "placeholder": false,
+              "union": false,
+              "x": 120,
+              "y": 0,
+            },
+            {
+              "count": undefined,
+              "id": "c",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 60,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "u1",
+              "layer": 0,
+              "placeholder": false,
+              "union": true,
+              "x": 60,
+              "y": 0,
+            },
+          ],
+        },
+        "r2": {
+          "edges": [
+            {
+              "childId": "d",
+              "parentId": "u1",
+              "role": "bio",
+            },
+            {
+              "childId": "e",
+              "parentId": "u2",
+              "role": "bio",
+            },
+          ],
+          "nodes": [
+            {
+              "count": undefined,
+              "id": "a",
+              "layer": 0,
+              "placeholder": false,
+              "union": false,
+              "x": 120,
+              "y": 0,
+            },
+            {
+              "count": undefined,
+              "id": "b",
+              "layer": 0,
+              "placeholder": false,
+              "union": false,
+              "x": 0,
+              "y": 0,
+            },
+            {
+              "count": undefined,
+              "id": "c",
+              "layer": 0,
+              "placeholder": false,
+              "union": false,
+              "x": 240,
+              "y": 0,
+            },
+            {
+              "count": undefined,
+              "id": "d",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 60,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "e",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 180,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "u1",
+              "layer": 0,
+              "placeholder": false,
+              "union": true,
+              "x": 60,
+              "y": 0,
+            },
+            {
+              "count": undefined,
+              "id": "u2",
+              "layer": 0,
+              "placeholder": false,
+              "union": true,
+              "x": 180,
+              "y": 0,
+            },
+          ],
+        },
+        "r3": {
+          "edges": [
+            {
+              "childId": "c",
+              "parentId": "a",
+              "role": "bio",
+            },
+            {
+              "childId": "c",
+              "parentId": "b",
+              "role": "step",
+            },
+          ],
+          "nodes": [
+            {
+              "count": undefined,
+              "id": "a",
+              "layer": -1,
+              "placeholder": false,
+              "union": false,
+              "x": 0,
+              "y": -100,
+            },
+            {
+              "count": undefined,
+              "id": "b",
+              "layer": -1,
+              "placeholder": false,
+              "union": false,
+              "x": 120,
+              "y": -100,
+            },
+            {
+              "count": undefined,
+              "id": "c",
+              "layer": 0,
+              "placeholder": false,
+              "union": false,
+              "x": 0,
+              "y": 0,
+            },
+            {
+              "count": undefined,
+              "id": "u",
+              "layer": -1,
+              "placeholder": false,
+              "union": true,
+              "x": 60,
+              "y": -100,
+            },
+          ],
+        },
+        "r4": {
+          "edges": [
+            {
+              "childId": "c0",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c1",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c2",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c3",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c4",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c5",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c6",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c7",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c8",
+              "parentId": "p",
+              "role": "bio",
+            },
+            {
+              "childId": "c9",
+              "parentId": "p",
+              "role": "bio",
+            },
+          ],
+          "nodes": [
+            {
+              "count": undefined,
+              "id": "c0",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 0,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c1",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 120,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c2",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 240,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c3",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 360,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c4",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 480,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c5",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 600,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c6",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 720,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c7",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 840,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c8",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 960,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "c9",
+              "layer": 1,
+              "placeholder": false,
+              "union": false,
+              "x": 1080,
+              "y": 100,
+            },
+            {
+              "count": undefined,
+              "id": "p",
+              "layer": 0,
+              "placeholder": false,
+              "union": false,
+              "x": 0,
+              "y": 0,
+            },
+            {
+              "count": 2,
+              "id": "p:siblings",
+              "layer": 1,
+              "placeholder": true,
+              "union": false,
+              "x": 1200,
+              "y": 100,
+            },
+          ],
+        },
+      }
+    `);
+  });
+
+  it('meets basic performance thresholds', () => {
+    const people: PersonNode[] = Array.from({ length: 200 }, (_, i) => ({ id: `p${i}` }));
+    const edges: ParentChildEdge[] = [];
+    for (let i = 1; i < people.length; i++) {
+      edges.push({ parentId: `p${Math.floor((i - 1) / 2)}`, childId: `p${i}`, role: 'bio' });
+    }
+    const visibility: Visibility = {
+      maxUpGenerations: 10,
+      maxDownGenerations: 10,
+      showRoles: { step: true, guardian: false, foster: false },
+    };
+    const start = performance.now();
+    const r = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'p0',
+      visibility,
+    });
+    const layoutMs = performance.now() - start;
+    const drawStart = performance.now();
+    let sink = 0;
+    for (const n of r.nodes) sink += n.x + n.y;
+    for (const e of r.edges) sink += e.parentId.length + e.childId.length;
+    const drawMs = performance.now() - drawStart;
+    const fpsMin = 1000 / (layoutMs + drawMs);
+    expect(layoutMs).toBeLessThanOrEqual(60);
+    expect(drawMs).toBeLessThanOrEqual(12);
+    expect(fpsMin).toBeGreaterThanOrEqual(55);
+    expect(sink).toBeGreaterThan(0); // prevent dead code elimination
   });
 });
