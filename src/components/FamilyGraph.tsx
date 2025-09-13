@@ -1,14 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   LayoutResult,
   ParentChildEdge,
   PersonNode,
   Union,
   Visibility,
+  LayoutNode,
 } from '../graph/familyLayout';
 import { edgeStyle, filterEdgesByRole } from '../graph/edgeStyles';
 import { edgePath } from '../graph/edgeRouting';
 import type { LayoutWorkerResponse, LayoutWorkerRequest } from '../graph/layoutWorker';
+import RoleLegend from './RoleLegend';
 
 interface FamilyGraphProps {
   people: PersonNode[];
@@ -112,20 +114,46 @@ export default function FamilyGraph({
   const hideLabels = transform.scale < 0.5;
   const tiny = transform.scale < 0.25;
 
+  const visibleNodes = layout.nodes.filter((n) => !n.union && !n.placeholder);
+  const nameMap = useMemo(
+    () => new Map(people.map((p) => [p.id, p.firstName || 'Unknown'])),
+    [people],
+  );
+  const describeNode = (n: LayoutNode): string => {
+    const name = nameMap.get(n.id) ?? 'Unknown';
+    const relations: string[] = [];
+    for (const e of visibleEdges) {
+      if (e.parentId === n.id) {
+        const child = nameMap.get(e.childId) ?? 'Unknown';
+        relations.push(`${e.role} parent of ${child}`);
+      } else if (e.childId === n.id) {
+        const parent = nameMap.get(e.parentId) ?? 'Unknown';
+        relations.push(`${e.role} child of ${parent}`);
+      }
+    }
+    return relations.length ? `${name}, ${relations.join('; ')}` : name;
+  };
+
   return (
     <div>
       <div style={{ marginBottom: 8 }}>
-        {(['step', 'guardian', 'foster'] as const).map((role) => (
-          <label key={role} style={{ marginRight: 8 }}>
-            <input
-              type="checkbox"
-              checked={showRoles[role]}
-              onChange={() => toggleRole(role)}
-            />
-            {role}
-          </label>
-        ))}
-        <button onClick={resetView}>Reset</button>
+        <fieldset style={{ display: 'inline-block', marginRight: 16 }}>
+          <legend>Show roles</legend>
+          {(['step', 'guardian', 'foster'] as const).map((role) => (
+            <label key={role} style={{ marginRight: 8 }}>
+              <input
+                type="checkbox"
+                checked={showRoles[role]}
+                onChange={() => toggleRole(role)}
+              />
+              {role}
+            </label>
+          ))}
+        </fieldset>
+        <RoleLegend />
+        <button onClick={resetView} style={{ marginLeft: 8 }}>
+          Reset
+        </button>
       </div>
       <svg
         ref={svgRef}
@@ -195,6 +223,26 @@ export default function FamilyGraph({
           ))}
         </g>
       </svg>
+      <ul aria-label="Family members" style={{ listStyle: 'none', padding: 0 }}>
+        {visibleNodes.map((n) => (
+          <li key={n.id} style={{ marginBottom: 4 }}>
+            <button
+              onClick={() => handleClickNode(n.id)}
+              onFocus={() => handleClickNode(n.id)}
+              aria-current={selectedId === n.id ? 'true' : undefined}
+              aria-label={describeNode(n)}
+              style={{
+                background: selectedId === n.id ? '#def' : 'transparent',
+                border: '1px solid #ccc',
+                width: '100%',
+                textAlign: 'left',
+              }}
+            >
+              {n.firstName ?? 'Unnamed'}
+            </button>
+          </li>
+        ))}
+      </ul>
       {selectedId && <div>Selected: {selectedId}</div>}
     </div>
   );
