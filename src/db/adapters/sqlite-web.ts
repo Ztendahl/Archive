@@ -11,7 +11,7 @@ async function initialize(): Promise<void> {
     throw new Error('sql.js not loaded: ensure initSqlJs is available before initializing the web adapter');
   }
   const SQL = await (globalThis as any).initSqlJs({
-    locateFile: (file: string) => `node_modules/sql.js/dist/${file}`,
+    locateFile: (file: string) => `/${file}`,
   });
   const data = await loadFromIndexedDB();
   db = data ? new SQL.Database(data) : new SQL.Database();

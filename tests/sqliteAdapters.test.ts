@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import initSqlJs from 'sql.js';
+import path from 'node:path';
 import 'fake-indexeddb/auto';
 import Database from 'better-sqlite3';
 
@@ -62,7 +63,8 @@ describe('Web SQLite adapter', () => {
   });
 
   it('persists data to IndexedDB', async () => {
-    (globalThis as any).initSqlJs = initSqlJs;
+    (globalThis as any).initSqlJs = () =>
+      initSqlJs({ locateFile: (file) => path.resolve('node_modules/sql.js/dist', file) });
     const web1 = await import('../src/db/adapters/sqlite-web');
     await web1.initSQLiteWeb();
     const db1 = web1.createSQLiteWebAdapter();
@@ -71,7 +73,8 @@ describe('Web SQLite adapter', () => {
 
     // Simulate a page reload
     vi.resetModules();
-    (globalThis as any).initSqlJs = initSqlJs;
+    (globalThis as any).initSqlJs = () =>
+      initSqlJs({ locateFile: (file) => path.resolve('node_modules/sql.js/dist', file) });
     const web2 = await import('../src/db/adapters/sqlite-web');
     await web2.initSQLiteWeb();
     const db2 = web2.createSQLiteWebAdapter();
