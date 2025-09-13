@@ -59,3 +59,13 @@ export async function ensurePeopleApi(): Promise<void> {
   }
 }
 
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    if (!window.api?.people) {
+      console.warn(
+        'window.api.people is undefined; ensure ensurePeopleApi() runs before using the API.',
+      );
+    }
+  }, 5000);
+}
+

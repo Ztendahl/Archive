@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button } from 'react-native';
+import type { Person } from '../db/people.repository';
 
 interface PersonFormProps {
-  onSaved?: (person: any) => void;
+  onSaved?: (person: Person) => void;
 }
 
 export default function PersonForm({ onSaved }: PersonFormProps): React.JSX.Element {
@@ -18,6 +19,8 @@ export default function PersonForm({ onSaved }: PersonFormProps): React.JSX.Elem
       onSaved?.(person);
       setFirstName('');
       setLastName('');
+    } else {
+      console.warn('window.api.people is not available; ensure ensurePeopleApi() has run.');
     }
   };
 
