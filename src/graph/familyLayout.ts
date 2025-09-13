@@ -45,6 +45,8 @@ export interface Visibility {
 export interface ExpansionState {
   showParents?: boolean;
   showChildren?: boolean;
+  /** when true, do not stack large numbers of children */
+  showAllChildren?: boolean;
 }
 
 export interface LayoutNode extends PersonNode {
@@ -211,10 +213,11 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
     });
   }
 
-  const verticalSpacing = 140;
-  const horizontalSpacing = 80;
+  // spacing tuned so labels don't overlap at 1.0 zoom on 1200px canvas
+  const verticalSpacing = 100;
+  const horizontalSpacing = 120;
 
-  const layoutNodes: LayoutNode[] = [];
+  let layoutNodes: LayoutNode[] = [];
   for (const [layer, ids] of nodesByLayer.entries()) {
     ids.forEach((id, index) => {
       const person = peopleMap.get(id)!;
@@ -275,9 +278,45 @@ export function layoutFamilyGraph(options: LayoutOptions): LayoutResult {
       if (child) child.x = anchor.x;
     }
   }
+  const placeholderNodes: LayoutNode[] = [];
+
+  // stack dense sibling groups unless explicitly expanded
+  const childrenVisible = new Map<string, string[]>();
+  for (const e of newEdges) {
+    if (!childrenVisible.has(e.parentId)) childrenVisible.set(e.parentId, []);
+    childrenVisible.get(e.parentId)!.push(e.childId);
+  }
+  const maxSiblings = 10;
+  for (const [parentId, childIds] of childrenVisible.entries()) {
+    if (childIds.length > maxSiblings && expansions[parentId]?.showAllChildren !== true) {
+      const keep = childIds.slice(0, maxSiblings);
+      const hide = childIds.slice(maxSiblings);
+      // remove hidden edges
+      for (let i = newEdges.length - 1; i >= 0; i--) {
+        if (hide.includes(newEdges[i].childId)) newEdges.splice(i, 1);
+      }
+      // remove hidden nodes
+      for (const id of hide) layoutMap.delete(id);
+      // position placeholder to the right of last kept child
+      const parent = layoutMap.get(parentId);
+      const last = layoutMap.get(keep[keep.length - 1]);
+      if (parent && last) {
+        placeholderNodes.push({
+          id: `${parentId}:siblings`,
+          x: last.x + horizontalSpacing,
+          y: parent.y + verticalSpacing,
+          layer: parent.layer + 1,
+          placeholder: true,
+          count: hide.length,
+        });
+      }
+    }
+  }
+
+  // remove layout nodes that were hidden by stacking
+  layoutNodes = layoutNodes.filter((n) => layoutMap.has(n.id));
 
   // add placeholders for collapsed branches
-  const placeholderNodes: LayoutNode[] = [];
   for (const [id, count] of collapsedParents.entries()) {
     const base = layoutMap.get(id);
     if (base) {
