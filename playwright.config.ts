@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './tests/e2e',
   retries: process.env.CI ? 2 : 0,
   timeout: 60_000,
   use: {
