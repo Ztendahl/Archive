@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { edgeStyle } from '../src/graph/edgeStyles';
+import { edgeStyle, filterEdgesByRole } from '../src/graph/edgeStyles';
 import type { ParentChildEdge } from '../src/graph/familyLayout';
 
 describe('edgeStyle', () => {
@@ -14,5 +14,20 @@ describe('edgeStyle', () => {
     const uncertain = edgeStyle({ parentId: 'a', childId: 'b', role: 'bio', certainty: 0.2 });
     expect(certain.opacity).toBeGreaterThan(uncertain.opacity);
     expect(uncertain.opacity).toBeLessThan(1);
+  });
+
+  it('filters edges by visibility', () => {
+    const edges: ParentChildEdge[] = [
+      { parentId: 'a', childId: 'b', role: 'bio' },
+      { parentId: 'a', childId: 'c', role: 'step' },
+      { parentId: 'a', childId: 'd', role: 'guardian' },
+      { parentId: 'a', childId: 'e', role: 'foster' },
+    ];
+    const visible = filterEdgesByRole(edges, {
+      step: false,
+      guardian: true,
+      foster: false,
+    });
+    expect(visible.map((e) => e.childId)).toEqual(['b', 'd']);
   });
 });
