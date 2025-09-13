@@ -9,3 +9,4 @@ yarn-error.log
 web-build
 android
 ios
+public/sql-wasm.wasm
