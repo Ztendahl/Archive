@@ -51,8 +51,8 @@ This app uses a thin DB adapter per platform, all behind `peopleRepository`:
 |-------------|------------------------|-----------------------------------------------|
 
 | Desktop     | better-sqlite3 (Node)  | Stores DB under Electron `app.getPath('userData')` |
-| iOS/Android | expo-sqlite            | Requires Expo SDK 50+, stores in app documents |
-| Web         | sql.js (WASM) + IndexedDB | Set `globalThis.initSqlJs` then call `initSQLiteWeb()`; data lives in IndexedDB |
+| iOS/Android | expo-sqlite            | Requires Expo SDK 50+, adapter exposed via `globalThis.createSQLiteRNAdapter`; stores in app documents |
+| Web         | sql.js (WASM) + IndexedDB | `ensurePeopleApi()` loads `sql.js`/`initSQLiteWeb` and exposes `window.api.people`; data lives in IndexedDB |
 Migrations are applied via `src/db/migrate.ts` (Node/Web) or on app start (RN).
 Schema version is tracked in a single-row table `meta(id INTEGER PRIMARY KEY CHECK (id = 1), schema_version INT)`.
 

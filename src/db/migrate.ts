@@ -18,14 +18,23 @@ export function migrate(db: SQLiteAdapter = createSQLiteNodeAdapter()): void {
     .readdirSync(dir)
     .filter((f) => f.endsWith('.sql'))
     .sort();
-  for (const file of files) {
-    const version = parseInt(file.split('_')[0], 10);
-    if (version > current) {
-      const sql = fs.readFileSync(path.join(dir, file), 'utf8');
-      db.exec(sql);
-      db.prepare('UPDATE meta SET schema_version = ? WHERE id = 1').run(version);
-      current = version;
+  db.exec('BEGIN');
+  try {
+    for (const file of files) {
+      const version = parseInt(file.split('_')[0], 10);
+      if (version > current) {
+        const sql = fs.readFileSync(path.join(dir, file), 'utf8');
+        db.exec(sql);
+        db
+          .prepare('UPDATE meta SET schema_version = ? WHERE id = 1')
+          .run(version);
+        current = version;
+      }
     }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
   }
 }
 
