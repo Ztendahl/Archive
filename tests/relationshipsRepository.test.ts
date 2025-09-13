@@ -79,4 +79,17 @@ describe('relationships repository', () => {
     expect(sibs.half.map((s) => s.person.id).sort()).toEqual([halfDad.id, halfMom.id].sort());
     expect(sibs.step.map((s) => s.person.id)).toEqual([stepSib.id]);
   });
+
+  it('derives step-parent only when union overlaps', () => {
+    const mom = addPerson('Mom');
+    const step = addPerson('Step');
+    const child = addPerson('Kid');
+    relations.addParentLink({ parentId: mom.id, childId: child.id, role: 'bio', startDate: '2000-01-01', endDate: '2010-01-01' });
+    // union outside parent-child range
+    relations.addUnion({ person1Id: mom.id, person2Id: step.id, startDate: '2011-01-01', endDate: '2012-01-01' });
+    expect(relations.getParents(child.id).some((p) => p.parent.id === step.id)).toBe(false);
+    // overlapping union
+    relations.addUnion({ person1Id: mom.id, person2Id: step.id, startDate: '2005-01-01', endDate: '2006-01-01' });
+    expect(relations.getParents(child.id).some((p) => p.parent.id === step.id && p.role === 'step')).toBe(true);
+  });
 });
