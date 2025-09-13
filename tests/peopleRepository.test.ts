@@ -12,7 +12,7 @@ beforeEach(() => {
 describe('people repository', () => {
   it('saves and fetches a person', () => {
     const person = repo.savePerson({ first_name: 'Jane', last_name: 'Doe' });
-    const fetched = repo.getPerson(person.id!);
+    const fetched = repo.getPerson(person.id);
     expect(fetched?.first_name).toBe('Jane');
   });
 
@@ -24,7 +24,7 @@ describe('people repository', () => {
 
   it('deletes a person', () => {
     const person = repo.savePerson({ first_name: 'Delete', last_name: 'Me' });
-    repo.deletePerson(person.id!);
+    repo.deletePerson(person.id);
     const list = repo.listPeople();
     expect(list.length).toBe(0);
   });

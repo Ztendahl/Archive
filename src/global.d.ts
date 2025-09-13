@@ -1,8 +1,8 @@
-import type { Person } from './db/people.repository';
+import type { Person, PersonInput } from './db/people.mapper';
 
 interface PeopleApi {
   list(): Promise<Person[]>;
-  save(person: Person): Promise<Person>;
+  save(person: PersonInput): Promise<Person>;
 }
 
 declare global {

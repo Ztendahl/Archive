@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { SQLiteAdapter } from './adapters/types';
 
-export interface Person {
+export interface DbPerson {
   id?: string;
   first_name?: string;
   last_name?: string;
@@ -13,10 +13,12 @@ export interface Person {
   tags?: string;
 }
 
+export type DbPersonWithId = DbPerson & { id: string };
+
 export interface PeopleRepository {
-  listPeople(): Person[];
-  getPerson(id: string): Person | undefined;
-  savePerson(person: Person): Person;
+  listPeople(): DbPersonWithId[];
+  getPerson(id: string): DbPersonWithId | undefined;
+  savePerson(person: DbPerson): DbPersonWithId;
   deletePerson(id: string): void;
 }
 
@@ -41,16 +43,16 @@ function initialize(db: SQLiteAdapter): void {
 export function createPeopleRepository(adapter: SQLiteAdapter): PeopleRepository {
   initialize(adapter);
 
-  const listPeople = (): Person[] =>
+  const listPeople = (): DbPersonWithId[] =>
     adapter
       .prepare('SELECT * FROM people ORDER BY last_name, first_name')
-      .all<Person>();
+      .all<DbPersonWithId>();
 
-  const getPerson = (id: string): Person | undefined =>
-    adapter.prepare('SELECT * FROM people WHERE id = ?').get<Person>(id);
+  const getPerson = (id: string): DbPersonWithId | undefined =>
+    adapter.prepare('SELECT * FROM people WHERE id = ?').get<DbPersonWithId>(id);
 
-  const savePerson = (person: Person): Person => {
-    const record: Person = { ...person, id: person.id ?? uuidv4() };
+  const savePerson = (person: DbPerson): DbPersonWithId => {
+    const record: DbPersonWithId = { ...person, id: person.id ?? uuidv4() };
 
     const stmt = adapter.prepare(`
       INSERT INTO people (

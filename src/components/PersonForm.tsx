@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button } from 'react-native';
-import type { Person } from '../db/people.repository';
+import type { Person } from '../db/people.mapper';
 
 interface PersonFormProps {
   onSaved?: (person: Person) => void;
@@ -13,8 +13,8 @@ export default function PersonForm({ onSaved }: PersonFormProps): React.JSX.Elem
   const onSubmit = async () => {
     if (window.api?.people?.save) {
       const person = await window.api.people.save({
-        first_name: firstName,
-        last_name: lastName,
+        firstName,
+        lastName,
       });
       onSaved?.(person);
       setFirstName('');
