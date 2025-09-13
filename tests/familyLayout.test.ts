@@ -314,6 +314,58 @@ describe('layoutFamilyGraph', () => {
     `);
   });
 
+  it('stacks dense sibling groups into a placeholder', () => {
+    const people: PersonNode[] = [{ id: 'p' }, ...Array.from({ length: 12 }, (_, i) => ({ id: `c${i}` }))];
+    const edges: ParentChildEdge[] = people
+      .filter((p) => p.id !== 'p')
+      .map((c) => ({ parentId: 'p', childId: c.id, role: 'bio' }));
+    const visibility: Visibility = {
+      maxUpGenerations: 5,
+      maxDownGenerations: 5,
+      showRoles: { step: true, guardian: true, foster: true },
+    };
+    const r = layoutFamilyGraph({ people, edges, unions: [], focusId: 'p', visibility });
+    const placeholder = r.nodes.find((n) => n.id === 'p:siblings');
+    expect(placeholder?.placeholder).toBe(true);
+    expect(placeholder?.count).toBe(2);
+    const childNodes = r.nodes.filter((n) => n.layer === 1 && !n.placeholder);
+    expect(childNodes.length).toBe(10);
+
+    const expanded = layoutFamilyGraph({
+      people,
+      edges,
+      unions: [],
+      focusId: 'p',
+      visibility,
+      expansions: { p: { showAllChildren: true } },
+    });
+    expect(expanded.nodes.filter((n) => n.layer === 1 && !n.placeholder).length).toBe(12);
+    expect(expanded.nodes.some((n) => n.id === 'p:siblings')).toBe(false);
+  });
+
+  it('spaces siblings at least 40px apart', () => {
+    const people: PersonNode[] = [
+      { id: 'p' },
+      { id: 'c1' },
+      { id: 'c2' },
+    ];
+    const edges: ParentChildEdge[] = [
+      { parentId: 'p', childId: 'c1', role: 'bio' },
+      { parentId: 'p', childId: 'c2', role: 'bio' },
+    ];
+    const visibility: Visibility = {
+      maxUpGenerations: 5,
+      maxDownGenerations: 5,
+      showRoles: { step: true, guardian: true, foster: true },
+    };
+    const r = layoutFamilyGraph({ people, edges, unions: [], focusId: 'p', visibility });
+    const xs = r.nodes
+      .filter((n) => n.layer === 1 && !n.placeholder)
+      .map((n) => n.x)
+      .sort((a, b) => a - b);
+    expect(xs[1] - xs[0]).toBeGreaterThanOrEqual(40);
+  });
+
   it('keeps existing node positions stable when adding an edge', () => {
     const people: PersonNode[] = [
       { id: 'p' },

@@ -7,6 +7,7 @@ import type {
   Visibility,
 } from '../graph/familyLayout';
 import { edgeStyle, filterEdgesByRole } from '../graph/edgeStyles';
+import { edgePath } from '../graph/edgeRouting';
 import type { LayoutWorkerResponse, LayoutWorkerRequest } from '../graph/layoutWorker';
 
 interface FamilyGraphProps {
@@ -151,12 +152,10 @@ export default function FamilyGraph({
                 ? '2,2'
                 : undefined;
             return (
-              <line
+              <path
                 key={`${e.parentId}-${e.childId}`}
-                x1={parent.x}
-                y1={parent.y}
-                x2={child.x}
-                y2={child.y}
+                d={edgePath(parent, child, e.role)}
+                fill="none"
                 stroke="black"
                 strokeWidth={1.5}
                 strokeOpacity={style.opacity}
@@ -182,11 +181,15 @@ export default function FamilyGraph({
                 fill={n.id === selectedId ? 'orange' : n.union ? '#ccc' : '#fff'}
                 stroke="#000"
               />
-              {!hideLabels && !tiny && n.firstName && <text x={12} y={4}>{n.firstName}</text>}
-              {tiny && n.count && (
-                <text x={4} y={4} fontSize={4}>
-                  {n.count}
-                </text>
+              {!hideLabels && !tiny && (
+                n.placeholder && n.count !== undefined ? (
+                  <text x={12} y={4}>+{n.count}</text>
+                ) : (
+                  n.firstName && <text x={12} y={4}>{n.firstName}</text>
+                )
+              )}
+              {tiny && n.count !== undefined && (
+                <text x={4} y={4} fontSize={4}>+{n.count}</text>
               )}
             </g>
           ))}
