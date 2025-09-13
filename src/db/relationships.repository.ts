@@ -48,6 +48,19 @@ export interface RelationshipsRepository {
   getSiblings(childId: string): SiblingGroups;
 }
 
+function rangesOverlap(
+  aStart?: string,
+  aEnd?: string,
+  bStart?: string,
+  bEnd?: string,
+): boolean {
+  const aS = aStart ? Date.parse(aStart) : Number.NEGATIVE_INFINITY;
+  const aE = aEnd ? Date.parse(aEnd) : Number.POSITIVE_INFINITY;
+  const bS = bStart ? Date.parse(bStart) : Number.NEGATIVE_INFINITY;
+  const bE = bEnd ? Date.parse(bEnd) : Number.POSITIVE_INFINITY;
+  return aS <= bE && bS <= aE;
+}
+
 function initialize(db: SQLiteAdapter): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS parent_child (
@@ -189,9 +202,25 @@ export function createRelationshipsRepository(db: SQLiteAdapter): RelationshipsR
     const bioParents = parents.filter((p) => p.role === 'bio' || p.role === 'adoptive');
     for (const bp of bioParents) {
       const unions = db
-        .prepare('SELECT person1_id, person2_id FROM unions WHERE person1_id = ? OR person2_id = ?')
-        .all([bp.parent.id, bp.parent.id]) as { person1_id: string; person2_id: string }[];
+        .prepare(
+          'SELECT person1_id, person2_id, start_date, end_date FROM unions WHERE person1_id = ? OR person2_id = ?'
+        )
+        .all([bp.parent.id, bp.parent.id]) as {
+        person1_id: string;
+        person2_id: string;
+        start_date?: string;
+        end_date?: string;
+      }[];
       for (const u of unions) {
+        if (
+          !rangesOverlap(
+            bp.startDate,
+            bp.endDate,
+            u.start_date ?? undefined,
+            u.end_date ?? undefined
+          )
+        )
+          continue;
         const partnerId = u.person1_id === bp.parent.id ? u.person2_id : u.person1_id;
         if (existingIds.has(partnerId)) continue;
         const partner = db
