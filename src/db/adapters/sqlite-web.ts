@@ -29,6 +29,21 @@ function persist(): void {
   void saveToIndexedDB(data);
 }
 
+function mapParams(params: any): any {
+  if (params && typeof params === 'object' && !Array.isArray(params)) {
+    const mapped: Record<string, any> = {};
+    for (const [key, value] of Object.entries(params)) {
+      if (key.startsWith(':') || key.startsWith('@') || key.startsWith('$')) {
+        mapped[key] = value;
+      } else {
+        mapped[`@${key}`] = value;
+      }
+    }
+    return mapped;
+  }
+  return params;
+}
+
 export function createSQLiteWebAdapter(): SQLiteAdapter {
   if (!db) {
     throw new Error('Web SQLite database not initialized');
@@ -44,7 +59,14 @@ export function createSQLiteWebAdapter(): SQLiteAdapter {
         run(params?: any): void {
           const stmt = db!.prepare(sql);
           try {
-            stmt.run(params);
+            const p = mapParams(params);
+            if (p === undefined) {
+              stmt.run();
+            } else if (Array.isArray(p) || typeof p === 'object') {
+              stmt.run(p);
+            } else {
+              stmt.run([p]);
+            }
           } finally {
             stmt.free();
             persist();
@@ -53,7 +75,14 @@ export function createSQLiteWebAdapter(): SQLiteAdapter {
         get<T = any>(params?: any): T | undefined {
           const stmt = db!.prepare(sql);
           try {
-            if (params) stmt.bind(params);
+            const p = mapParams(params);
+            if (p !== undefined) {
+              if (Array.isArray(p) || typeof p === 'object') {
+                stmt.bind(p);
+              } else {
+                stmt.bind([p]);
+              }
+            }
             if (stmt.step()) {
               return stmt.getAsObject() as T;
             }
@@ -65,7 +94,14 @@ export function createSQLiteWebAdapter(): SQLiteAdapter {
         all<T = any>(params?: any): T[] {
           const stmt = db!.prepare(sql);
           try {
-            if (params) stmt.bind(params);
+            const p = mapParams(params);
+            if (p !== undefined) {
+              if (Array.isArray(p) || typeof p === 'object') {
+                stmt.bind(p);
+              } else {
+                stmt.bind([p]);
+              }
+            }
             const rows: T[] = [];
             while (stmt.step()) {
               rows.push(stmt.getAsObject() as T);
